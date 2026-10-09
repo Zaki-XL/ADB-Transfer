@@ -20,15 +20,17 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          update: false
+          path-type: inherit
           install: >-
-            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-gcc
             make
 
       - name: Build and Run Unit Tests
         shell: msys2 {0}
         run: |
-          mkdir -p Release
+          which g++ || true
+          g++ --version || true
+          mkdir -p bin tests Release
           make clean
           make all
           ./tests/test_runner.exe

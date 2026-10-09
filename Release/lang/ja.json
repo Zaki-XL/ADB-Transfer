@@ -1,0 +1,64 @@
+{
+  "language_name": "日本語",
+  "window_title": "ADB Transfer",
+  "header": {
+    "group_title": "端末接続状態",
+    "status_checking": "接続を確認中...",
+    "status_searching_usb": "USB端末を探索・登録中...",
+    "status_scanning_storage": "ストレージを探索中...",
+    "status_connected": "接続中: {device} ({ip})",
+    "status_disconnected": "未接続 (Wi-Fi 未検出)",
+    "btn_register": "端末を登録 (USB)",
+    "btn_reconnect": "再接続"
+  },
+  "preset": {
+    "group_title": "転送先プリセット（右クリックで削除可能、最大8つ）",
+    "btn_add": "+ フォルダ登録",
+    "delete_confirm": "プリセット '{name}' を削除しますか？",
+    "delete_title": "プリセット削除",
+    "warn_select_folder": "ツリーからプリセットに登録したいフォルダを選択してください。",
+    "warn_max_presets": "お気に入りプリセットは最大8つまで登録できます。\r\n不要なプリセットを右クリックして削除してから追加してください。",
+    "warn_already_exists": "このフォルダは既にプリセットに登録されています。",
+    "success_added": "お気に入りプリセットに登録しました。",
+    "prefix_sd": "[SD] ",
+    "prefix_internal": "[内蔵] "
+  },
+  "storage_tree": {
+    "internal": "内蔵ストレージ (空き: {free})",
+    "sdcard": "MicroSDカード [{uuid}] (空き: {free})",
+    "loading": "読み込み中...",
+    "empty": "（空のフォルダ）"
+  },
+  "transfer": {
+    "group_title": "ファイル転送エリア (ドラッグ＆ドロップ)",
+    "dest_prefix": "転送先: ",
+    "dest_none": "転送先: [未選択] 左のツリーまたはプリセットから選択してください",
+    "col_name": "対象ファイル/フォルダ",
+    "summary_format": "選択中: {count} ファイル ({size})",
+    "btn_start": "転送開始",
+    "btn_remove": "リストから削除",
+    "btn_clear": "リストクリア"
+  },
+  "progress": {
+    "ready": "準備完了",
+    "items_added": "転送対象リスト: 合計 {count} 項目",
+    "items_removed": "チェックしたアイテムを削除しました ({removed} 件削除, 残り {remain} 項目)",
+    "list_cleared": "リストをクリアしました",
+    "transferring": "転送中: {name} ({current}/{total}) - {speed}",
+    "verifying": "検証中: {name} のサイズを照合中...",
+    "complete": "転送完了: {count}/{total} 成功 (サイズ整合性ベリファイ済)",
+    "error": "エラー: 転送に失敗しました"
+  },
+  "messages": {
+    "warn_no_dest_title": "警告",
+    "warn_no_dest_msg": "転送先フォルダが選択されていません。左側のツリーまたはプリセットから選択してください。",
+    "warn_no_files_title": "警告",
+    "warn_no_files_msg": "転送対象のファイルまたはフォルダが選択されていません。",
+    "confirm_register_title": "端末登録 (USB)",
+    "confirm_register_msg": "端末をPCにUSB接続し、USBデバッグが有効になっていることを確認してください。\n\n登録を実行しますか？",
+    "register_success_title": "登録完了",
+    "register_success_msg": "端末が正常に登録されました！\nIPアドレス: {ip}\nWi-Fi ポート (5555) を開放しました。USBケーブルを抜いて構いません。",
+    "register_fail_title": "登録失敗",
+    "register_fail_msg": "端末の登録に失敗しました。USB接続とUSBデバッグ設定を確認してください。"
+  }
+}

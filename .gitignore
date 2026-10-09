@@ -1,0 +1,47 @@
+# ==========================================
+# ADB Transfer - .gitignore
+# ==========================================
+
+# --- 設定ファイル (ローカル環境固有の端末IPやポート情報) ---
+config.ini
+*.ini
+
+# --- 開発ドキュメント & レビュー記録 (リポジトリ非公開) ---
+doc/
+docs/
+
+# --- 一時スクリプト & 作業ディレクトリ (Antigravity Scratch等) ---
+scratch/
+temp/
+tmp/
+*.tmp
+*.temp
+
+# --- ビルド成果物 (中間オブジェクトファイル & 実行バイナリ) ---
+*.o
+*.obj
+bin/AdbTransfer.exe
+tests/test_runner.exe
+bin/lang/
+
+# ※ Release/ フォルダ内のファイル（AdbTransfer.exe, adb.exe 等）は
+# GitHub Release 配布物としてリポジトリにコミット対象とします。
+
+# --- ログファイル ---
+log/
+logs/
+*.log
+
+# --- OS 固有ファイル ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# --- エディタ / IDE 設定 ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

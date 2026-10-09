@@ -1,0 +1,64 @@
+{
+  "language_name": "English",
+  "window_title": "ADB Transfer",
+  "header": {
+    "group_title": "Device Connection Status",
+    "status_checking": "Checking connection...",
+    "status_searching_usb": "Searching and registering USB device...",
+    "status_scanning_storage": "Scanning storage devices...",
+    "status_connected": "Connected: {device} ({ip})",
+    "status_disconnected": "Disconnected (Wi-Fi not found)",
+    "btn_register": "Register Device (USB)",
+    "btn_reconnect": "Reconnect"
+  },
+  "preset": {
+    "group_title": "Destination Presets (Right-click to delete, max 8)",
+    "btn_add": "+ Add Folder",
+    "delete_confirm": "Delete preset '{name}'?",
+    "delete_title": "Delete Preset",
+    "warn_select_folder": "Please select a destination folder from the tree first.",
+    "warn_max_presets": "You can register up to 8 presets.\r\nPlease right-click and delete an existing preset before adding a new one.",
+    "warn_already_exists": "This folder is already registered as a preset.",
+    "success_added": "Registered to destination presets.",
+    "prefix_sd": "[SD] ",
+    "prefix_internal": "[Internal] "
+  },
+  "storage_tree": {
+    "internal": "Internal Storage (Free: {free})",
+    "sdcard": "MicroSD Card [{uuid}] (Free: {free})",
+    "loading": "Loading...",
+    "empty": "(Empty Folder)"
+  },
+  "transfer": {
+    "group_title": "File Transfer Area (Drag & Drop)",
+    "dest_prefix": "Destination: ",
+    "dest_none": "Destination: [None Selected] Please select from tree or presets",
+    "col_name": "Target File / Folder",
+    "summary_format": "Selected: {count} files ({size})",
+    "btn_start": "Start Transfer",
+    "btn_remove": "Remove Selected",
+    "btn_clear": "Clear List"
+  },
+  "progress": {
+    "ready": "Ready",
+    "items_added": "Transfer List: Total {count} item(s)",
+    "items_removed": "Removed checked items ({removed} deleted, {remain} remaining)",
+    "list_cleared": "Transfer list cleared",
+    "transferring": "Transferring: {name} ({current}/{total}) - {speed}",
+    "verifying": "Verifying: Checking size for {name}...",
+    "complete": "Transfer Complete: {count}/{total} successful (size verified)",
+    "error": "Error: Transfer failed"
+  },
+  "messages": {
+    "warn_no_dest_title": "Warning",
+    "warn_no_dest_msg": "No destination folder selected. Please select one from the tree or presets.",
+    "warn_no_files_title": "Warning",
+    "warn_no_files_msg": "No files or folders selected for transfer.",
+    "confirm_register_title": "Device Registration (USB)",
+    "confirm_register_msg": "Please ensure the device is connected via USB and USB debugging is enabled.\n\nProceed with registration?",
+    "register_success_title": "Registration Complete",
+    "register_success_msg": "Device registered successfully!\nIP Address: {ip}\nWi-Fi port (5555) opened. You may now disconnect the USB cable.",
+    "register_fail_title": "Registration Failed",
+    "register_fail_msg": "Failed to register device. Please check USB connection and USB debugging settings."
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "language_name": "简体中文",
+  "window_title": "ADB Transfer",
+  "header": {
+    "group_title": "设备连接状态",
+    "status_checking": "正在检查连接...",
+    "status_searching_usb": "正在搜索并注册 USB 设备...",
+    "status_scanning_storage": "正在扫描存储设备...",
+    "status_connected": "已连接: {device} ({ip})",
+    "status_disconnected": "未连接 (未检测到 Wi-Fi)",
+    "btn_register": "注册设备 (USB)",
+    "btn_reconnect": "重新连接"
+  },
+  "preset": {
+    "group_title": "目标预设 (右键删除，最多8个)",
+    "btn_add": "+ 添加文件夹",
+    "delete_confirm": "确定删除预设 '{name}' 吗？",
+    "delete_title": "删除预设",
+    "warn_select_folder": "请先从左侧目录树中选择要添加为预设的文件夹。",
+    "warn_max_presets": "最多只能添加8个快捷预设。\r\n请右键删除不需要的预设后再添加。",
+    "warn_already_exists": "该文件夹已存在于预设列表中。",
+    "success_added": "已成功添加至目标预设。",
+    "prefix_sd": "[SD] ",
+    "prefix_internal": "[内部] "
+  },
+  "storage_tree": {
+    "internal": "内部存储 (可用: {free})",
+    "sdcard": "MicroSD 卡 [{uuid}] (可用: {free})",
+    "loading": "正在加载...",
+    "empty": "(空文件夹)"
+  },
+  "transfer": {
+    "group_title": "文件传输区域 (拖拽添加)",
+    "dest_prefix": "目标路径: ",
+    "dest_none": "目标路径: [未选择] 请从左侧目录树或预设中选择",
+    "col_name": "目标文件/文件夹",
+    "summary_format": "已选择: {count} 个文件 ({size})",
+    "btn_start": "开始传输",
+    "btn_remove": "从列表中移除",
+    "btn_clear": "清空列表"
+  },
+  "progress": {
+    "ready": "就绪",
+    "items_added": "传输列表: 共 {count} 个项目",
+    "items_removed": "已删除选中的项目 ({removed} 个已删除, 剩余 {remain} 个)",
+    "list_cleared": "传输列表已清空",
+    "transferring": "正在传输: {name} ({current}/{total}) - {speed}",
+    "verifying": "正在校验: 正在比对 {name} 文件大小...",
+    "complete": "传输完成: {count}/{total} 成功 (大小已严格校验)",
+    "error": "错误: 传输失败"
+  },
+  "messages": {
+    "warn_no_dest_title": "警告",
+    "warn_no_dest_msg": "未选择目标文件夹。请从左侧目录树或预设中选择。",
+    "warn_no_files_title": "警告",
+    "warn_no_files_msg": "未选择要传输的文件或文件夹。",
+    "confirm_register_title": "设备注册 (USB)",
+    "confirm_register_msg": "请确保设备已通过USB连接至电脑且已开启USB调试。\n\n是否继续注册？",
+    "register_success_title": "注册完成",
+    "register_success_msg": "设备注册成功！\nIP地址: {ip}\nWi-Fi 端口 (5555) 已开启。现在可以拔出USB数据线。",
+    "register_fail_title": "注册失败",
+    "register_fail_msg": "设备注册失败。请检查USB连接及USB调试设置。"
+  }
+}

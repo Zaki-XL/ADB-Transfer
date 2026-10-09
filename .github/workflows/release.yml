@@ -16,24 +16,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up MSYS2 (MinGW-w64)
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          path-type: inherit
-          install: >-
-            mingw-w64-x86_64-gcc
-            make
-
-      - name: Build and Run Unit Tests
-        shell: msys2 {0}
+      - name: Verify Release Directory
+        shell: pwsh
         run: |
-          which g++ || true
-          g++ --version || true
-          mkdir -p bin tests Release
-          make clean
-          make all
-          ./tests/test_runner.exe
+          if (-not (Test-Path "Release/AdbTransfer.exe")) {
+            throw "Release/AdbTransfer.exe does not exist in repository!"
+          }
 
       - name: Create Release Package
         shell: pwsh

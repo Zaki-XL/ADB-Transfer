@@ -17,9 +17,10 @@ tmp/
 *.tmp
 *.temp
 
-# --- ビルド成果物 (中間オブジェクトファイル & 実行バイナリ) ---
+# --- ビルド成果物 (中間オブジェクトファイル & 実行バイナリ & 配布ZIP) ---
 *.o
 *.obj
+*.zip
 bin/AdbTransfer.exe
 tests/test_runner.exe
 bin/lang/

@@ -1,4 +1,4 @@
-CXX ?= scratch/w64devkit/bin/g++.exe
+CXX ?= g++
 CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Iinclude
 LDFLAGS_GUI ?= -static -municode -mwindows -lcomctl32 -luxtheme
 LDFLAGS_TEST ?= -static -municode -lcomctl32 -luxtheme

@@ -59,6 +59,8 @@
     "register_success_title": "注册完成",
     "register_success_msg": "设备注册成功！\nIP地址: {ip}\nWi-Fi 端口 (5555) 已开启。现在可以拔出USB数据线。",
     "register_fail_title": "注册失败",
-    "register_fail_msg": "设备注册失败。请检查USB连接及USB调试设置。"
+    "register_fail_msg": "设备注册失败。请检查USB连接及USB调试设置。",
+    "warn_low_space_title": "存储空间不足",
+    "warn_low_space_msg": "设备可用存储空间不足。\n\n需要空间: {required}\n可用空间: {available}\n\n请清理空间后重试。"
   }
 }

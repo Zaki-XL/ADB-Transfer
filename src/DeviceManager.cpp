@@ -80,7 +80,6 @@ ConnectionState DeviceManager::CheckStatus(const AdbManager& adb,
             state.isWifi = true;
             state.deviceName = dev.name.empty() ? "Wi-Fi端末" : dev.name;
             state.targetSerial = d.serial;
-            state.statusMessage = "Wi-Fi接続中: " + state.deviceName + " (" + wifiTarget + ")";
             return state;
         }
     }
@@ -92,7 +91,6 @@ ConnectionState DeviceManager::CheckStatus(const AdbManager& adb,
             state.isWifi = true;
             state.deviceName = d.model.empty() ? d.serial : d.model;
             state.targetSerial = d.serial;
-            state.statusMessage = "Wi-Fi接続中: " + state.deviceName + " (" + d.serial + ")";
             return state;
         }
     }
@@ -104,14 +102,11 @@ ConnectionState DeviceManager::CheckStatus(const AdbManager& adb,
             state.isWifi = false;
             state.deviceName = d.model.empty() ? dev.name : d.model;
             state.targetSerial = d.serial;
-            state.statusMessage = "USB接続中: " + state.deviceName + " (" + d.serial + ")";
             return state;
         }
     }
 
     state.isConnected = false;
-    state.statusMessage = dev.ip.empty() ? "未接続 (USB接続で端末を登録してください)"
-                                         : "未接続 (" + dev.ip + " に接続できません。「再接続」をクリック)";
     return state;
 }
 

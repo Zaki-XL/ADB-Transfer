@@ -91,8 +91,7 @@ std::vector<StorageInfo> StorageScanner::ParseMountsAndDf(const std::string& sto
     return results;
 }
 
-std::vector<RemoteDirectoryItem> StorageScanner::ParseDirectoryList(const std::string& lsOutput,
-                                                                   const std::string& parentPath) {
+std::vector<RemoteDirectoryItem> StorageScanner::ParseDirectoryList(const std::string& lsOutput) {
     std::vector<RemoteDirectoryItem> items;
     std::istringstream stream(lsOutput);
     std::string line;
@@ -143,7 +142,7 @@ std::vector<RemoteDirectoryItem> StorageScanner::ScanDirectories(const AdbManage
         out = adb.ShellExec(targetDevice, cmd);
     }
 
-    return ParseDirectoryList(out, remotePath);
+    return ParseDirectoryList(out);
 }
 
 bool StorageScanner::CreateDirectory(const AdbManager& adb,

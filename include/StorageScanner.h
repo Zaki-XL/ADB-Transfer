@@ -41,8 +41,7 @@ public:
     // ユニットテスト用パース補助関数
     static std::vector<StorageInfo> ParseMountsAndDf(const std::string& storageListOutput,
                                                     const std::string& dfOutput);
-    static std::vector<RemoteDirectoryItem> ParseDirectoryList(const std::string& lsOutput,
-                                                               const std::string& parentPath);
+    static std::vector<RemoteDirectoryItem> ParseDirectoryList(const std::string& lsOutput);
 };
 
 } // namespace AdbTransfer

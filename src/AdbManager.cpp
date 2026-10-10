@@ -1,4 +1,5 @@
 #include "AdbManager.h"
+#include "I18nManager.h"
 #include <sstream>
 #include <iostream>
 #include <thread>
@@ -34,10 +35,6 @@ std::wstring AdbManager::DetectDefaultAdbPath() const {
     if (GetFileAttributesW(L"bin\\platform-tools\\adb.exe") != INVALID_FILE_ATTRIBUTES) {
         return L"bin\\platform-tools\\adb.exe";
     }
-    if (GetFileAttributesW(L"adb.exe") != INVALID_FILE_ATTRIBUTES) {
-        return L"adb.exe";
-    }
-
     return L"adb.exe";
 }
 
@@ -45,12 +42,7 @@ static std::wstring BuildCommandLine(const std::wstring& exe, const std::vector<
     std::wstring cmd = L"\"" + exe + L"\"";
     for (const auto& a : args) {
         cmd += L" ";
-        // UTF-8 -> UTF-16
-        int len = MultiByteToWideChar(CP_UTF8, 0, a.c_str(), -1, nullptr, 0);
-        std::vector<wchar_t> w(len);
-        MultiByteToWideChar(CP_UTF8, 0, a.c_str(), -1, w.data(), len);
-        std::wstring warg = w.data();
-
+        std::wstring warg = I18nManager::Utf8ToWide(a);
         bool needQuote = (warg.find(L' ') != std::wstring::npos || warg.empty());
         if (needQuote) cmd += L"\"";
         cmd += warg;
@@ -301,11 +293,7 @@ int AdbManager::Push(const std::string& targetDevice,
     args.push_back("push");
 
     // localPath (wstring) -> UTF-8 string
-    int len = WideCharToMultiByte(CP_UTF8, 0, localPath.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    std::vector<char> mb(len);
-    WideCharToMultiByte(CP_UTF8, 0, localPath.c_str(), -1, mb.data(), len, nullptr, nullptr);
-    args.push_back(mb.data());
-
+    args.push_back(I18nManager::WideToUtf8(localPath));
     args.push_back(remotePath);
 
     if (progressCb) {
@@ -331,21 +319,83 @@ std::string AdbManager::ShellExec(const std::string& targetDevice, const std::st
 }
 
 int64_t AdbManager::GetRemoteFileSize(const std::string& targetDevice, const std::string& remotePath) const {
+    auto extractFirstNumber = [](const std::string& text) -> int64_t {
+        std::regex numRegex(R"(\b([0-9]+)\b)");
+        std::smatch match;
+        if (std::regex_search(text, match, numRegex) && match.size() > 1) {
+            try {
+                return std::stoll(match[1].str());
+            } catch (...) {}
+        }
+        return -1;
+    };
+
+    // 1. stat -c %s
     std::string cmd = "stat -c %s \"" + remotePath + "\" 2>/dev/null";
     std::string out = ShellExec(targetDevice, cmd);
+    int64_t size = extractFirstNumber(out);
+    if (size >= 0) return size;
+
+    // 2. wc -c (全Android端末で確実に動作)
+    cmd = "wc -c \"" + remotePath + "\" 2>/dev/null";
+    out = ShellExec(targetDevice, cmd);
+    size = extractFirstNumber(out);
+    if (size >= 0) return size;
+
+    // 3. ls -ln
+    cmd = "ls -ln \"" + remotePath + "\" 2>/dev/null";
+    out = ShellExec(targetDevice, cmd);
+    if (!out.empty()) {
+        std::istringstream iss(out);
+        std::string perm, links, uid, gid, sz;
+        if (iss >> perm >> links >> uid >> gid >> sz) {
+            try {
+                return std::stoll(sz);
+            } catch (...) {}
+        }
+    }
+
+    return -1;
+}
+
+int64_t AdbManager::GetRemoteAvailableSpace(const std::string& targetDevice, const std::string& remotePath) const {
+    // 1. stat -f (ファイルシステム統計: %a=一般ユーザー利用可能ブロック数, %s=ブロックサイズ)
+    std::string cmd = "stat -f -c \"%a %s\" \"" + remotePath + "\" 2>/dev/null";
+    std::string out = ShellExec(targetDevice, cmd);
     try {
-        while (!out.empty() && (out.back() == '\r' || out.back() == '\n')) out.pop_back();
-        if (!out.empty()) {
-            return std::stoll(out);
+        std::istringstream iss(out);
+        int64_t freeBlocks = 0, blockSize = 0;
+        if ((iss >> freeBlocks >> blockSize) && freeBlocks > 0 && blockSize > 0) {
+            return freeBlocks * blockSize;
         }
     } catch (...) {}
+
+    // 2. フォールバック: df -k
+    cmd = "df -k \"" + remotePath + "\" 2>/dev/null";
+    out = ShellExec(targetDevice, cmd);
+    try {
+        std::istringstream dfStream(out);
+        std::string line, lastLine;
+        while (std::getline(dfStream, line)) {
+            while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
+            if (!line.empty()) lastLine = line;
+        }
+        if (!lastLine.empty()) {
+            std::istringstream ls(lastLine);
+            std::string fs, blocks, used, avail;
+            if (ls >> fs >> blocks >> used >> avail) {
+                return std::stoll(avail) * 1024;
+            }
+        }
+    } catch (...) {}
+
     return -1;
 }
 
 bool AdbManager::MakeRemoteDirectory(const std::string& targetDevice, const std::string& remotePath) const {
     std::string cmd = "mkdir -p \"" + remotePath + "\"";
     std::string out = ShellExec(targetDevice, cmd);
-    return true;
+    return out.find("cannot create") == std::string::npos && out.find("Permission denied") == std::string::npos;
 }
 
 } // namespace AdbTransfer

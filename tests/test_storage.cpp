@@ -40,7 +40,7 @@ void TestStorageScanner() {
         "/storage/9C33-6BBD/Movies/\n"
         "/storage/9C33-6BBD/Music/\n";
 
-    auto dirs = AdbTransfer::StorageScanner::ParseDirectoryList(mockLs, "/storage/9C33-6BBD");
+    auto dirs = AdbTransfer::StorageScanner::ParseDirectoryList(mockLs);
     assert(dirs.size() == 3);
     assert(dirs[0].name == "Books");
     assert(dirs[0].fullPath == "/storage/9C33-6BBD/Books");

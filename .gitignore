@@ -9,6 +9,7 @@ config.ini
 # --- 開発ドキュメント & レビュー記録 (リポジトリ非公開) ---
 doc/
 docs/
+task.md
 
 # --- 一時スクリプト & 作業ディレクトリ (Antigravity Scratch等) ---
 scratch/

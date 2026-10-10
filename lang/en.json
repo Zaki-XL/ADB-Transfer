@@ -59,6 +59,8 @@
     "register_success_title": "Registration Complete",
     "register_success_msg": "Device registered successfully!\nIP Address: {ip}\nWi-Fi port (5555) opened. You may now disconnect the USB cable.",
     "register_fail_title": "Registration Failed",
-    "register_fail_msg": "Failed to register device. Please check USB connection and USB debugging settings."
+    "register_fail_msg": "Failed to register device. Please check USB connection and USB debugging settings.",
+    "warn_low_space_title": "Insufficient Storage Space",
+    "warn_low_space_msg": "Not enough free storage space on the device.\n\nRequired: {required}\nAvailable: {available}\n\nPlease free up space and try again."
   }
 }

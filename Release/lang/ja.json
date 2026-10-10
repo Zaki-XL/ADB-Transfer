@@ -59,6 +59,8 @@
     "register_success_title": "登録完了",
     "register_success_msg": "端末が正常に登録されました！\nIPアドレス: {ip}\nWi-Fi ポート (5555) を開放しました。USBケーブルを抜いて構いません。",
     "register_fail_title": "登録失敗",
-    "register_fail_msg": "端末の登録に失敗しました。USB接続とUSBデバッグ設定を確認してください。"
+    "register_fail_msg": "端末の登録に失敗しました。USB接続とUSBデバッグ設定を確認してください。",
+    "warn_low_space_title": "空き容量不足",
+    "warn_low_space_msg": "端末の空き容量が不足しています。\n\n転送必要容量: {required}\n端末空き容量: {available}\n\n不要なファイルを削除してから再度お試しください。"
   }
 }

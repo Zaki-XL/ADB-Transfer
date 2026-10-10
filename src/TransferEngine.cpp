@@ -1,4 +1,5 @@
 #include "TransferEngine.h"
+#include "I18nManager.h"
 #include <windows.h>
 #include <iostream>
 #include <regex>
@@ -74,11 +75,7 @@ TransferResult TransferEngine::Transfer(const AdbManager& adb,
     // ファイル名（またはフォルダ名）の抽出
     size_t lastBackslash = localPath.find_last_of(L"\\/");
     std::wstring baseName = (lastBackslash != std::wstring::npos) ? localPath.substr(lastBackslash + 1) : localPath;
-
-    int len = WideCharToMultiByte(CP_UTF8, 0, baseName.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    std::vector<char> mbBase(len);
-    WideCharToMultiByte(CP_UTF8, 0, baseName.c_str(), -1, mbBase.data(), len, nullptr, nullptr);
-    std::string baseNameUtf8 = mbBase.data();
+    std::string baseNameUtf8 = I18nManager::WideToUtf8(baseName);
 
     std::string normalizedRemoteDir = remoteDir;
     if (!normalizedRemoteDir.empty() && normalizedRemoteDir.back() != '/') {
@@ -140,10 +137,7 @@ TransferResult TransferEngine::Transfer(const AdbManager& adb,
             for (auto& wc : relPathNorm) {
                 if (wc == L'\\') wc = L'/';
             }
-            int rlen = WideCharToMultiByte(CP_UTF8, 0, relPathNorm.c_str(), -1, nullptr, 0, nullptr, nullptr);
-            std::vector<char> rmb(rlen);
-            WideCharToMultiByte(CP_UTF8, 0, relPathNorm.c_str(), -1, rmb.data(), rlen, nullptr, nullptr);
-            std::string relPathUtf8 = rmb.data();
+            std::string relPathUtf8 = I18nManager::WideToUtf8(relPathNorm);
 
             std::string remoteFilePath = targetRemote + relPathUtf8;
             int64_t lSize = 0, rSize = 0;

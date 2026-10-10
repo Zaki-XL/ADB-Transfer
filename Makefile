@@ -1,5 +1,5 @@
 CXX ?= g++
-CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Iinclude
+CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -DUNICODE -D_UNICODE -Iinclude
 LDFLAGS_GUI ?= -static -municode -mwindows -lcomctl32 -luxtheme
 LDFLAGS_TEST ?= -static -municode -lcomctl32 -luxtheme
 
@@ -10,6 +10,9 @@ SRCS = src/ConfigManager.cpp \
        src/TransferEngine.cpp \
        src/DeviceManager.cpp \
        src/MainWindow.cpp \
+       src/MainWindow_Controls.cpp \
+       src/MainWindow_Layout.cpp \
+       src/MainWindow_Transfer.cpp \
        src/main.cpp
 
 OBJS = $(SRCS:.cpp=.o)

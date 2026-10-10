@@ -17,7 +17,7 @@ namespace AdbTransfer {
 
 // アプリケーションバージョン (Semantic Versioning: MAJOR.MINOR.PATCH)
 // 機能追加時は MINOR (第2), 機能修正時は PATCH (第3) をカウントアップ
-constexpr const wchar_t* APP_VERSION = L"1.0.0";
+constexpr const wchar_t* APP_VERSION = L"1.0.1";
 
 // カスタムメッセージ
 constexpr UINT WM_APP_CONNECT_COMPLETE    = WM_APP + 1;
@@ -33,7 +33,9 @@ public:
 
     bool Create(HINSTANCE hInstance, int nCmdShow);
     int Run();
-    void OnPresetRightClick(size_t index, HWND hBtn);
+    void OnPresetRightClick(size_t index);
+    void OnDropFiles(HDROP hDrop);
+    HBRUSH GetBgBrush() const { return m_hBgBrush; }
 
 private:
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -45,6 +47,7 @@ private:
     void SetConnectionStatus(const std::string& key, const std::map<std::string, std::wstring>& params = {});
     void SetProgressStatus(const std::string& key, const std::map<std::string, std::wstring>& params = {});
     void UpdateConnectionLamp(bool connected);
+    void UpdateConnectedStatusText();
 
     // アクション
     void OnRegisterDevice();
@@ -56,9 +59,9 @@ private:
     void OnStartTransfer();
     void OnRemoveChecked();
     void OnClearTransferList();
-    void OnDropFiles(HDROP hDrop);
     void UpdateTransferSummary();
     void UpdateTransferButtonState();
+    void UpdateUIConnectionState(bool isConnected, bool isScanning = false);
     void ApplyLanguage();
     void OnLanguageChanged();
     RECT GetSplitterRect() const;
@@ -109,6 +112,9 @@ private:
     // スプリッター状態
     int m_splitX = 380;
     bool m_isDraggingSplitter = false;
+    int m_dragSplitX = 380;
+    void DrawSplitterGuide(int x);
+    bool m_inSizeMove = false; // ウィンドウリサイズドラッグ中フラグ
 
     // コアマネージャー
     std::unique_ptr<AdbManager> m_adb;
@@ -128,6 +134,7 @@ private:
     std::string m_selectedRemotePath; // 選択中の転送先フォルダ
     std::vector<TransferItemInfo> m_transferItems;
     bool m_isTransferring = false;
+    bool m_isConnectingOrScanning = false;
 
     struct UiStatusState {
         std::string key;

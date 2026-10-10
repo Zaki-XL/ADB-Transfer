@@ -8,13 +8,6 @@
 
 namespace AdbTransfer {
 
-struct TransferItem {
-    std::wstring localPath;
-    std::string remoteTargetPath;
-    bool isDirectory = false;
-    int64_t localSize = 0;
-};
-
 struct TransferResult {
     bool success = false;
     std::wstring localPath;

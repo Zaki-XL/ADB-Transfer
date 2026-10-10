@@ -11,7 +11,6 @@ struct ConnectionState {
     bool isWifi = false;
     std::string deviceName;
     std::string targetSerial; // "192.168.1.50:5555" または USBシリアル
-    std::string statusMessage;
 };
 
 class DeviceManager {

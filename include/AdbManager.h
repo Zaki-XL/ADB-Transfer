@@ -53,6 +53,7 @@ public:
 
     std::string ShellExec(const std::string& targetDevice, const std::string& shellCmd) const;
     int64_t GetRemoteFileSize(const std::string& targetDevice, const std::string& remotePath) const;
+    int64_t GetRemoteAvailableSpace(const std::string& targetDevice, const std::string& remotePath) const;
     bool MakeRemoteDirectory(const std::string& targetDevice, const std::string& remotePath) const;
 
     std::wstring DetectDefaultAdbPath() const;

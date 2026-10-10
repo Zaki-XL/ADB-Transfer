@@ -111,6 +111,8 @@ ADB Transfer/
 │   │   ├── ja.json
 │   │   ├── en.json
 │   │   └── zh.json
+│   ├── LICENSE-Apache-2.0.txt     # ADB 专用的 Apache 2.0 许可证全文
+│   ├── NOTICE-adb.txt             # ADB 专用的 AOSP 版权声明告知文件
 │   └── README.txt
 ├── README.md                      # 日语文档
 ├── README_EN.md                   # 英语文档 (English)
@@ -118,3 +120,12 @@ ADB Transfer/
 ```
 
 *(※ 内部开发规格说明、任务进度管理、审查报告等 `doc/` 目录以及临时脚本目录 `scratch/` 均已通过 `.gitignore` 排除在 Git 追踪之外，确保公开仓库的整洁与安全)*
+
+---
+
+## 8. 开源许可 (License)
+
+- **ADB Transfer**: MIT License
+- **Android Debug Bridge (`adb.exe`, `AdbWinApi.dll`, `AdbWinUsbApi.dll`)**:  
+  源自 Android Open Source Project (AOSP) 的二进制分发组件，依据 [Apache License, Version 2.0](Release/LICENSE-Apache-2.0.txt) 捆绑再分发。有关归属及版权声明，请参阅 [Release/NOTICE-adb.txt](Release/NOTICE-adb.txt)。
+

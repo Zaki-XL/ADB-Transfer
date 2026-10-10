@@ -7,12 +7,14 @@ Windows PCから Android 端末への Wireless ADB 経由による
 高速・安全なファイル転送ツールです。
 
 【同梱ファイル】
-- AdbTransfer.exe    : アプリケーション本体
-- adb.exe            : Google公式 Android Debug Bridge 実行バイナリ
-- AdbWinApi.dll      : ADB通信用DLL
-- AdbWinUsbApi.dll   : ADB USB通信用DLL
-- lang/              : 多言語リソースフォルダ (ja.json, en.json, zh.json)
-- README.txt         : 本説明ファイル
+- AdbTransfer.exe        : アプリケーション本体
+- adb.exe                : Android Debug Bridge 実行バイナリ (AOSP由来)
+- AdbWinApi.dll          : ADB通信用DLL
+- AdbWinUsbApi.dll       : ADB USB通信用DLL
+- lang/                  : 多言語リソースフォルダ (ja.json, en.json, zh.json)
+- LICENSE-Apache-2.0.txt : ADB用 Apache License 2.0 ライセンス全文
+- NOTICE-adb.txt         : ADB著作権告知ファイル
+- README.txt             : 本説明ファイル
 
 【使用方法】
 1. 初回設定 (USB接続):
@@ -30,5 +32,11 @@ Windows PCから Android 端末への Wireless ADB 経由による
    - 左側のストレージツリーから転送先フォルダ（内蔵またはMicroSDカード）を選択します。
    - 右側のエリアにファイルやフォルダをドラッグ＆ドロップします。
    - 「転送開始」をクリックすると、高速転送およびファイルサイズ整合性ベリファイが実行されます。
+
+【ライセンス情報 (Licenses)】
+- 本配布物に含まれる adb.exe、AdbWinApi.dll、AdbWinUsbApi.dll は、
+  Android Open Source Project (AOSP) の成果物であり、
+  Apache License, Version 2.0 に基づいて再配布されています。
+  ライセンスの詳細は同封の「LICENSE-Apache-2.0.txt」および「NOTICE-adb.txt」をご確認ください。
 
 ================================================================================

@@ -111,6 +111,8 @@ ADB Transfer/
 │   │   ├── ja.json
 │   │   ├── en.json
 │   │   └── zh.json
+│   ├── LICENSE-Apache-2.0.txt     # Apache License 2.0 full text for ADB
+│   ├── NOTICE-adb.txt             # AOSP copyright notice file for ADB
 │   └── README.txt
 ├── README.md                      # Japanese documentation
 ├── README_EN.md                   # English documentation (This file)
@@ -118,3 +120,12 @@ ADB Transfer/
 ```
 
 *(※ Internal development documents, tasks, reviewer reports in `doc/`, and temporary scripts in `scratch/` are excluded from Git tracking via `.gitignore` to keep the public repository clean and secure)*
+
+---
+
+## 8. License
+
+- **ADB Transfer**: MIT License
+- **Android Debug Bridge (`adb.exe`, `AdbWinApi.dll`, `AdbWinUsbApi.dll`)**:  
+  Binaries built from the Android Open Source Project (AOSP) and redistributed under the [Apache License, Version 2.0](Release/LICENSE-Apache-2.0.txt). For attribution and copyright notices, see [Release/NOTICE-adb.txt](Release/NOTICE-adb.txt).
+

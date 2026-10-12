@@ -61,6 +61,10 @@
     "register_fail_title": "注册失败",
     "register_fail_msg": "设备注册失败。请检查USB连接及USB调试设置。",
     "warn_low_space_title": "存储空间不足",
-    "warn_low_space_msg": "设备可用存储空间不足。\n\n需要空间: {required}\n可用空间: {available}\n\n请清理空间后重试。"
+    "warn_low_space_msg": "设备可用存储空间不足。\n\n需要空间: {required}\n可用空间: {available}\n\n请清理空间后重试。",
+    "transfer_success_title": "传输完成",
+    "transfer_success_msg": "所有文件（{success}/{total} 项）已成功传输并完成大小校验。",
+    "transfer_fail_title": "传输结果（部分验证失败）",
+    "transfer_fail_msg": "{total} 项中，部分文件的传输或大小校验失败（{success}/{total} 成功）："
   }
 }

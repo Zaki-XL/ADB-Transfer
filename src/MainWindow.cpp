@@ -85,6 +85,8 @@ bool MainWindow::Create(HINSTANCE hInstance, int nCmdShow) {
     wc.lpfnWndProc = MainWindow::WndProc;
     wc.hInstance = hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(101));
+    wc.hIconSm = (HICON)LoadImageW(hInstance, MAKEINTRESOURCEW(101), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
     wc.hbrBackground = m_hBgBrush;
     wc.lpszClassName = CLASS_NAME;
 
@@ -120,6 +122,15 @@ bool MainWindow::Create(HINSTANCE hInstance, int nCmdShow) {
 
     InitControls();
     RefreshPresetButtons();
+    LoadTransferListFromConfig();
+
+    std::string savedRemote = m_config->GetLastRemotePath();
+    if (!savedRemote.empty()) {
+        m_selectedRemotePath = savedRemote;
+        std::wstring msg = tW("transfer.dest_prefix") + Utf8ToUtf16(m_selectedRemotePath);
+        SetWindowTextW(m_hTransferDestText, msg.c_str());
+        UpdateTransferButtonState();
+    }
 
     RECT rc;
     GetClientRect(m_hwnd, &rc);
@@ -265,6 +276,10 @@ void MainWindow::OnTreeSelectionChanged(NMTREEVIEWW* nmtv) {
     auto pData = reinterpret_cast<TreeNodeData*>(item.lParam);
     if (pData) {
         m_selectedRemotePath = pData->fullPath;
+        if (m_config) {
+            m_config->SetLastRemotePath(m_selectedRemotePath);
+            m_config->Save(L"");
+        }
         std::wstring msg = tW("transfer.dest_prefix") + Utf8ToUtf16(m_selectedRemotePath);
         SetWindowTextW(m_hTransferDestText, msg.c_str());
         UpdateTransferButtonState();
@@ -412,6 +427,10 @@ LRESULT MainWindow::HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             const auto& presets = m_config->GetPresets();
             if (idx < presets.size()) {
                 m_selectedRemotePath = presets[idx].remotePath;
+                if (m_config) {
+                    m_config->SetLastRemotePath(m_selectedRemotePath);
+                    m_config->Save(L"");
+                }
                 std::wstring msgW = tW("transfer.dest_prefix") + Utf8ToUtf16(m_selectedRemotePath);
                 SetWindowTextW(m_hTransferDestText, msgW.c_str());
                 UpdateTransferButtonState();
@@ -469,9 +488,14 @@ LRESULT MainWindow::HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         } else if (nmhdr->idFrom == IDC_TRANSFER_LIST) {
             if (nmhdr->code == LVN_ITEMCHANGED) {
                 NMLISTVIEW* nmlv = reinterpret_cast<NMLISTVIEW*>(lParam);
-                if ((nmlv->uChanged & LVIF_STATE) &&
-                    ((nmlv->uNewState & LVIS_STATEIMAGEMASK) != (nmlv->uOldState & LVIS_STATEIMAGEMASK))) {
-                    UpdateTransferSummary();
+                OnTransferListItemChanged(nmlv);
+            } else if (nmhdr->code == NM_CLICK || nmhdr->code == NM_DBLCLK) {
+                LVHITTESTINFO hti{};
+                GetCursorPos(&hti.pt);
+                ScreenToClient(m_hTransferList, &hti.pt);
+                ListView_HitTest(m_hTransferList, &hti);
+                if (hti.iItem >= 0 && !(hti.flags & LVHT_ONITEMSTATEICON)) {
+                    OnTransferListClick(hti.iItem);
                 }
             } else if (nmhdr->code == NM_CUSTOMDRAW) {
                 LPNMLVCUSTOMDRAW lplvcd = reinterpret_cast<LPNMLVCUSTOMDRAW>(lParam);
@@ -652,6 +676,7 @@ LRESULT MainWindow::HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     }
 
     case WM_DESTROY:
+        SaveTransferListToConfig();
         PostQuitMessage(0);
         return 0;
     }

@@ -38,6 +38,10 @@ bool ConfigManager::Load(const std::wstring& iniPath) {
     m_language = mbBuf;
     if (m_language.empty()) m_language = "ja";
 
+    GetPrivateProfileStringW(L"General", L"LastRemotePath", L"", buf, 512, m_filePath.c_str());
+    WideCharToMultiByte(CP_UTF8, 0, buf, -1, mbBuf, 512, nullptr, nullptr);
+    m_lastRemotePath = mbBuf;
+
     // [Device]
     GetPrivateProfileStringW(L"Device", L"Name", L"", buf, 512, m_filePath.c_str());
     WideCharToMultiByte(CP_UTF8, 0, buf, -1, mbBuf, 512, nullptr, nullptr);
@@ -73,6 +77,17 @@ bool ConfigManager::Load(const std::wstring& iniPath) {
         }
     }
 
+    // [TransferList]
+    m_transferPaths.clear();
+    int transferCount = GetPrivateProfileIntW(L"TransferList", L"Count", 0, m_filePath.c_str());
+    for (int i = 0; i < transferCount; ++i) {
+        std::wstring keyPath = L"Item_" + std::to_wstring(i);
+        GetPrivateProfileStringW(L"TransferList", keyPath.c_str(), L"", buf, 512, m_filePath.c_str());
+        if (wcslen(buf) > 0) {
+            m_transferPaths.push_back(buf);
+        }
+    }
+
     return true;
 }
 
@@ -92,6 +107,7 @@ bool ConfigManager::Save(const std::wstring& iniPath) const {
 
     // [General]
     WritePrivateProfileStringW(L"General", L"Language", toW(m_language).c_str(), targetPath.c_str());
+    WritePrivateProfileStringW(L"General", L"LastRemotePath", toW(m_lastRemotePath).c_str(), targetPath.c_str());
 
     // [Device]
     WritePrivateProfileStringW(L"Device", L"Name", toW(m_device.name).c_str(), targetPath.c_str());
@@ -106,6 +122,13 @@ bool ConfigManager::Save(const std::wstring& iniPath) const {
         std::wstring keyPath = L"Preset_" + std::to_wstring(i) + L"_Path";
         WritePrivateProfileStringW(L"Presets", keyName.c_str(), toW(m_presets[i].name).c_str(), targetPath.c_str());
         WritePrivateProfileStringW(L"Presets", keyPath.c_str(), toW(m_presets[i].remotePath).c_str(), targetPath.c_str());
+    }
+
+    // [TransferList]
+    WritePrivateProfileStringW(L"TransferList", L"Count", std::to_wstring(m_transferPaths.size()).c_str(), targetPath.c_str());
+    for (size_t i = 0; i < m_transferPaths.size(); ++i) {
+        std::wstring keyPath = L"Item_" + std::to_wstring(i);
+        WritePrivateProfileStringW(L"TransferList", keyPath.c_str(), m_transferPaths[i].c_str(), targetPath.c_str());
     }
 
     return true;

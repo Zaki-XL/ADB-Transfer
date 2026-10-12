@@ -88,7 +88,11 @@ TransferResult TransferEngine::Transfer(const AdbManager& adb,
     bool isDir = IsDirectory(localPath);
 
     // ADB Push 実行（コールバックで進捗を拾う）
+    std::string lastAdbError = "";
     auto onAdbLine = [&](const std::string& line) {
+        if (line.find("error:") != std::string::npos || line.find("failed") != std::string::npos || line.find("cannot") != std::string::npos) {
+            lastAdbError = line;
+        }
         if (!progressCb) return;
 
         // 進捗パーセントを抽出: "[ 45%] /remote/path"
@@ -105,10 +109,16 @@ TransferResult TransferEngine::Transfer(const AdbManager& adb,
         progressCb(1, 1, "転送中: " + baseNameUtf8, 10);
     }
 
-    int pushExit = adb.Push(targetDevice, localPath, normalizedRemoteDir, onAdbLine);
+    // フォルダの場合はターゲットディレクトリを事前に作成
+    if (isDir) {
+        adb.MakeRemoteDirectory(targetDevice, targetRemote);
+    }
+
+    std::string pushDest = isDir ? targetRemote + "/" : targetRemote;
+    int pushExit = adb.Push(targetDevice, localPath, pushDest, onAdbLine);
     if (pushExit != 0) {
         res.success = false;
-        res.errorMessage = "adb push 終了コード: " + std::to_string(pushExit);
+        res.errorMessage = lastAdbError.empty() ? ("adb push 終了コード: " + std::to_string(pushExit)) : lastAdbError;
         return res;
     }
 
@@ -162,6 +172,82 @@ TransferResult TransferEngine::Transfer(const AdbManager& adb,
     }
 
     return res;
+}
+
+std::vector<TransferResult> TransferEngine::TransferTasks(const AdbManager& adb,
+                                                          const std::string& targetDevice,
+                                                          const std::vector<TransferTask>& tasks,
+                                                          ProgressCallback progressCb) {
+    std::vector<TransferResult> results;
+    int total = static_cast<int>(tasks.size());
+
+    for (int i = 0; i < total; ++i) {
+        const auto& t = tasks[i];
+        TransferResult res;
+        res.localPath = t.localFilePath;
+
+        // リモート側ターゲットディレクトリを事前に作成
+        adb.MakeRemoteDirectory(targetDevice, t.remoteTargetDir);
+
+        std::string pushDest = t.remoteTargetDir;
+        if (!pushDest.empty() && pushDest.back() != '/') {
+            pushDest += "/";
+        }
+
+        size_t lastSlash = t.localFilePath.find_last_of(L"\\/");
+        std::wstring fileName = (lastSlash != std::wstring::npos) ? t.localFilePath.substr(lastSlash + 1) : t.localFilePath;
+        std::string fileNameUtf8 = I18nManager::WideToUtf8(fileName);
+        std::string remoteTargetFile = pushDest + fileNameUtf8;
+        res.remotePath = remoteTargetFile;
+
+        if (progressCb) {
+            progressCb(i + 1, total, "転送中: " + t.relativePathForDisplay, 10);
+        }
+
+        std::string lastAdbError = "";
+        auto onAdbLine = [&](const std::string& line) {
+            if (line.find("error:") != std::string::npos || line.find("failed") != std::string::npos || line.find("cannot") != std::string::npos) {
+                lastAdbError = line;
+            }
+            if (!progressCb) return;
+            std::regex pctRegex(R"(\[\s*([0-9]+)%\])");
+            std::smatch match;
+            int pct = 50;
+            if (std::regex_search(line, match, pctRegex) && match.size() > 1) {
+                pct = std::stoi(match[1].str());
+            }
+            progressCb(i + 1, total, t.relativePathForDisplay + ": " + line, pct);
+        };
+
+        // リモート側はディレクトリ末尾スラッシュではなく、完全なファイルパスを指定
+        // (ADBデーモンが親ディレクトリを自動再帰作成して確実に配置するため)
+        int pushExit = adb.Push(targetDevice, t.localFilePath, remoteTargetFile, onAdbLine);
+        if (pushExit != 0) {
+            res.success = false;
+            res.errorMessage = lastAdbError.empty() ? ("adb push 終了コード: " + std::to_string(pushExit)) : lastAdbError;
+            results.push_back(res);
+            continue;
+        }
+
+        if (progressCb) {
+            progressCb(i + 1, total, "ベリファイ中: " + t.relativePathForDisplay, 95);
+        }
+
+        res.sizeMatched = VerifyFile(adb, targetDevice, t.localFilePath, remoteTargetFile, res.localBytes, res.remoteBytes);
+        res.success = res.sizeMatched;
+        if (!res.sizeMatched) {
+            res.errorMessage = "サイズ不一致: Local=" + std::to_string(res.localBytes) +
+                               " Remote=" + std::to_string(res.remoteBytes);
+        }
+
+        if (progressCb) {
+            progressCb(i + 1, total, res.success ? "完了: " + t.relativePathForDisplay : "検証失敗: " + t.relativePathForDisplay, 100);
+        }
+
+        results.push_back(res);
+    }
+
+    return results;
 }
 
 std::vector<TransferResult> TransferEngine::TransferBatch(const AdbManager& adb,

@@ -38,15 +38,51 @@ std::wstring AdbManager::DetectDefaultAdbPath() const {
     return L"adb.exe";
 }
 
+static std::string EscapeShellArg(const std::string& arg) {
+    std::string escaped = "'";
+    for (char c : arg) {
+        if (c == '\'') {
+            escaped += "'\\''";
+        } else {
+            escaped += c;
+        }
+    }
+    escaped += "'";
+    return escaped;
+}
+
 static std::wstring BuildCommandLine(const std::wstring& exe, const std::vector<std::string>& args) {
     std::wstring cmd = L"\"" + exe + L"\"";
     for (const auto& a : args) {
         cmd += L" ";
         std::wstring warg = I18nManager::Utf8ToWide(a);
-        bool needQuote = (warg.find(L' ') != std::wstring::npos || warg.empty());
-        if (needQuote) cmd += L"\"";
-        cmd += warg;
-        if (needQuote) cmd += L"\"";
+        bool needQuote = (warg.find(L' ') != std::wstring::npos ||
+                          warg.find(L'\t') != std::wstring::npos ||
+                          warg.find(L'\"') != std::wstring::npos ||
+                          warg.empty());
+        if (!needQuote) {
+            cmd += warg;
+        } else {
+            cmd += L"\"";
+            for (size_t i = 0; i < warg.length(); ++i) {
+                int backslashes = 0;
+                while (i < warg.length() && warg[i] == L'\\') {
+                    backslashes++;
+                    i++;
+                }
+                if (i == warg.length()) {
+                    cmd.append(backslashes * 2, L'\\');
+                    break;
+                } else if (warg[i] == L'\"') {
+                    cmd.append(backslashes * 2 + 1, L'\\');
+                    cmd += L'\"';
+                } else {
+                    cmd.append(backslashes, L'\\');
+                    cmd += warg[i];
+                }
+            }
+            cmd += L"\"";
+        }
     }
     return cmd;
 }
@@ -330,20 +366,22 @@ int64_t AdbManager::GetRemoteFileSize(const std::string& targetDevice, const std
         return -1;
     };
 
+    std::string safePath = EscapeShellArg(remotePath);
+
     // 1. stat -c %s
-    std::string cmd = "stat -c %s \"" + remotePath + "\" 2>/dev/null";
+    std::string cmd = "stat -c %s " + safePath + " 2>/dev/null";
     std::string out = ShellExec(targetDevice, cmd);
     int64_t size = extractFirstNumber(out);
     if (size >= 0) return size;
 
     // 2. wc -c (全Android端末で確実に動作)
-    cmd = "wc -c \"" + remotePath + "\" 2>/dev/null";
+    cmd = "wc -c " + safePath + " 2>/dev/null";
     out = ShellExec(targetDevice, cmd);
     size = extractFirstNumber(out);
     if (size >= 0) return size;
 
     // 3. ls -ln
-    cmd = "ls -ln \"" + remotePath + "\" 2>/dev/null";
+    cmd = "ls -ln " + safePath + " 2>/dev/null";
     out = ShellExec(targetDevice, cmd);
     if (!out.empty()) {
         std::istringstream iss(out);
@@ -359,8 +397,10 @@ int64_t AdbManager::GetRemoteFileSize(const std::string& targetDevice, const std
 }
 
 int64_t AdbManager::GetRemoteAvailableSpace(const std::string& targetDevice, const std::string& remotePath) const {
+    std::string safePath = EscapeShellArg(remotePath);
+
     // 1. stat -f (ファイルシステム統計: %a=一般ユーザー利用可能ブロック数, %s=ブロックサイズ)
-    std::string cmd = "stat -f -c \"%a %s\" \"" + remotePath + "\" 2>/dev/null";
+    std::string cmd = "stat -f -c \"%a %s\" " + safePath + " 2>/dev/null";
     std::string out = ShellExec(targetDevice, cmd);
     try {
         std::istringstream iss(out);
@@ -371,7 +411,7 @@ int64_t AdbManager::GetRemoteAvailableSpace(const std::string& targetDevice, con
     } catch (...) {}
 
     // 2. フォールバック: df -k
-    cmd = "df -k \"" + remotePath + "\" 2>/dev/null";
+    cmd = "df -k " + safePath + " 2>/dev/null";
     out = ShellExec(targetDevice, cmd);
     try {
         std::istringstream dfStream(out);
@@ -393,7 +433,8 @@ int64_t AdbManager::GetRemoteAvailableSpace(const std::string& targetDevice, con
 }
 
 bool AdbManager::MakeRemoteDirectory(const std::string& targetDevice, const std::string& remotePath) const {
-    std::string cmd = "mkdir -p \"" + remotePath + "\"";
+    std::string safePath = EscapeShellArg(remotePath);
+    std::string cmd = "mkdir -p " + safePath;
     std::string out = ShellExec(targetDevice, cmd);
     return out.find("cannot create") == std::string::npos && out.find("Permission denied") == std::string::npos;
 }

@@ -36,12 +36,20 @@ public:
     bool RemovePreset(size_t index);
     void ClearPresets();
 
+    const std::vector<std::wstring>& GetTransferPaths() const { return m_transferPaths; }
+    void SetTransferPaths(const std::vector<std::wstring>& paths) { m_transferPaths = paths; }
+
+    const std::string& GetLastRemotePath() const { return m_lastRemotePath; }
+    void SetLastRemotePath(const std::string& path) { m_lastRemotePath = path; }
+
     std::wstring GetDefaultIniPath() const;
 
 private:
     std::string m_language = "ja";
     DeviceConfig m_device;
     std::vector<PresetItem> m_presets;
+    std::vector<std::wstring> m_transferPaths;
+    std::string m_lastRemotePath;
     std::wstring m_filePath;
 };
 

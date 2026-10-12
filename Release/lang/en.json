@@ -61,6 +61,10 @@
     "register_fail_title": "Registration Failed",
     "register_fail_msg": "Failed to register device. Please check USB connection and USB debugging settings.",
     "warn_low_space_title": "Insufficient Storage Space",
-    "warn_low_space_msg": "Not enough free storage space on the device.\n\nRequired: {required}\nAvailable: {available}\n\nPlease free up space and try again."
+    "warn_low_space_msg": "Not enough free storage space on the device.\n\nRequired: {required}\nAvailable: {available}\n\nPlease free up space and try again.",
+    "transfer_success_title": "Transfer Complete",
+    "transfer_success_msg": "All files ({success}/{total} items) were transferred and verified successfully.",
+    "transfer_fail_title": "Transfer Result (Verification Failed)",
+    "transfer_fail_msg": "Failed to transfer or verify some files ({success}/{total} succeeded):"
   }
 }

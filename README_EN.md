@@ -13,7 +13,12 @@ Solves fundamental issues commonly encountered with traditional MTP connections,
 - **One-Click Initial USB Setup**: Connect your device via USB and click once to automate Wi-Fi IP retrieval and open port `tcpip 5555`. Afterwards, operate completely wire-free.
 - **Internal Storage & External MicroSD Auto-Detection**: Automatically discovers both `/sdcard` and external MicroSD cards (UUID), allowing hierarchical folder browsing.
 - **Drag & Drop with Directory Merge**: Simply drag and drop files or folders into the target directory for high-speed transfer. Merges into existing folders without overwriting unrelated data.
-- **Byte-Exact Size Verification**: After each `adb push`, strictly verifies local file sizes against Android remote file sizes (`stat -c %s`) down to the exact byte.
+- **Full Folder Structure Replication & Expandable File Selection (v1.1.0)**:
+  - Folders in the transfer list can be expanded (`> `) to select individual files for transfer.
+  - Accurately replicates local folder structures on the device (`mkdir -p`).
+- **Persistent Transfer List (v1.1.0)**:
+  - Automatically saves and restores transfer queue items in `config.ini`.
+- **Byte-Exact Size Verification**: After each `adb push`, strictly verifies local file sizes against Android remote file sizes (`stat -c %s`) down to the exact byte, with robust shell escaping for bracketed paths `[...]`.
 - **Multilingual Support (i18n: 日本語 / English / 简体中文)**:
   - Dynamically scans the `lang/` directory on startup.
   - Instantly switch languages from the dropdown selector in the bottom-right corner without restarting the app.
@@ -28,7 +33,7 @@ Solves fundamental issues commonly encountered with traditional MTP connections,
 
 ## Versioning Policy
 This project adheres to Semantic Versioning (`MAJOR.MINOR.PATCH`).
-- **Title Display**: `ADB Transfer v1.0.0`
+- **Title Display**: `ADB Transfer v1.1.0`
 - **Second Number (MINOR / Feature Additions)**: New feature additions, UI component additions, new storage format support, etc.
 - **Third Number (PATCH / Bug Fixes & Refinements)**: Bug fixes, flicker reduction/rendering optimizations, text corrections, etc.
 - **First Number (MAJOR / Major Changes)**: Breaking architectural changes or complete protocol overhaul.

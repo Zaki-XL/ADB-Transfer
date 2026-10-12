@@ -1,44 +1,40 @@
 #include "MainWindow_Internal.h"
 #include <thread>
+#include <algorithm>
 
 namespace AdbTransfer {
 
-static void CalculateItemSize(const std::wstring& path, uint64_t& outBytes, int& outFileCount) {
-    DWORD attr = GetFileAttributesW(path.c_str());
-    if (attr == INVALID_FILE_ATTRIBUTES) return;
+static void ScanDirectoryRecursive(const std::wstring& rootDir,
+                                    const std::wstring& curDir,
+                                    std::vector<MainWindow::SubFileInfo>& outFiles,
+                                    uint64_t& outBytes) {
+    std::wstring searchPattern = curDir + L"\\*";
+    WIN32_FIND_DATAW fd;
+    HANDLE hFind = FindFirstFileW(searchPattern.c_str(), &fd);
+    if (hFind == INVALID_HANDLE_VALUE) return;
 
-    if (attr & FILE_ATTRIBUTE_DIRECTORY) {
-        std::wstring searchPath = path + L"\\*";
-        WIN32_FIND_DATAW fd;
-        HANDLE hFind = FindFirstFileW(searchPath.c_str(), &fd);
-        if (hFind != INVALID_HANDLE_VALUE) {
-            do {
-                if (wcscmp(fd.cFileName, L".") == 0 || wcscmp(fd.cFileName, L"..") == 0) {
-                    continue;
-                }
-                std::wstring fullSubPath = path + L"\\" + fd.cFileName;
-                if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                    CalculateItemSize(fullSubPath, outBytes, outFileCount);
-                } else {
-                    LARGE_INTEGER size;
-                    size.LowPart = fd.nFileSizeLow;
-                    size.HighPart = fd.nFileSizeHigh;
-                    outBytes += size.QuadPart;
-                    outFileCount++;
-                }
-            } while (FindNextFileW(hFind, &fd));
-            FindClose(hFind);
+    do {
+        if (wcscmp(fd.cFileName, L".") == 0 || wcscmp(fd.cFileName, L"..") == 0) continue;
+
+        std::wstring fullPath = curDir + L"\\" + fd.cFileName;
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            ScanDirectoryRecursive(rootDir, fullPath, outFiles, outBytes);
+        } else {
+            LARGE_INTEGER sz;
+            sz.LowPart = fd.nFileSizeLow;
+            sz.HighPart = fd.nFileSizeHigh;
+            outBytes += sz.QuadPart;
+
+            MainWindow::SubFileInfo sub;
+            sub.localPath = fullPath;
+            sub.relativePath = fullPath.substr(rootDir.length() + 1);
+            sub.fileSize = sz.QuadPart;
+            sub.isChecked = true;
+            outFiles.push_back(sub);
         }
-    } else {
-        WIN32_FILE_ATTRIBUTE_DATA fad;
-        if (GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &fad)) {
-            LARGE_INTEGER size;
-            size.LowPart = fad.nFileSizeLow;
-            size.HighPart = fad.nFileSizeHigh;
-            outBytes += size.QuadPart;
-            outFileCount++;
-        }
-    }
+    } while (FindNextFileW(hFind, &fd));
+
+    FindClose(hFind);
 }
 
 static std::wstring FormatFileSize(uint64_t bytes) {
@@ -58,16 +54,189 @@ static std::wstring FormatFileSize(uint64_t bytes) {
     return buf;
 }
 
+void MainWindow::AddTransferItem(const std::wstring& path) {
+    // 重複チェック
+    for (const auto& existing : m_transferItems) {
+        if (_wcsicmp(existing.localPath.c_str(), path.c_str()) == 0) {
+            return;
+        }
+    }
+
+    DWORD attr = GetFileAttributesW(path.c_str());
+    if (attr == INVALID_FILE_ATTRIBUTES) return;
+
+    TransferItemInfo item;
+    item.localPath = path;
+    item.isDirectory = (attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+    size_t lastSlash = path.find_last_of(L"\\/");
+    item.folderName = (lastSlash != std::wstring::npos) ? path.substr(lastSlash + 1) : path;
+    item.isExpanded = false;
+    item.isChecked = true;
+
+    if (item.isDirectory) {
+        uint64_t totalBytes = 0;
+        ScanDirectoryRecursive(path, path, item.subFiles, totalBytes);
+        item.fileCount = static_cast<int>(item.subFiles.size());
+        item.totalBytes = totalBytes;
+    } else {
+        WIN32_FILE_ATTRIBUTE_DATA fad;
+        if (GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &fad)) {
+            LARGE_INTEGER sz;
+            sz.LowPart = fad.nFileSizeLow;
+            sz.HighPart = fad.nFileSizeHigh;
+            item.totalBytes = sz.QuadPart;
+        }
+        item.fileCount = 1;
+
+        SubFileInfo sub;
+        sub.localPath = path;
+        sub.relativePath = item.folderName;
+        sub.fileSize = item.totalBytes;
+        sub.isChecked = true;
+        item.subFiles.push_back(sub);
+    }
+
+    m_transferItems.push_back(item);
+}
+
+void MainWindow::RefreshTransferListView() {
+    m_isUpdatingListChecks = true;
+    ListView_DeleteAllItems(m_hTransferList);
+    m_listRows.clear();
+
+    for (size_t i = 0; i < m_transferItems.size(); ++i) {
+        auto& item = m_transferItems[i];
+        if (item.isDirectory) {
+            // 親フォルダ行: 未展開なら "> ", 展開中なら "v "
+            std::wstring prefix = item.isExpanded ? L"v " : L"> ";
+            std::wstring displayText = prefix + item.folderName + L" (" +
+                std::to_wstring(item.fileCount) + L"項目, " + FormatFileSize(item.totalBytes) + L")";
+
+            LVITEMW lvi{};
+            lvi.mask = LVIF_TEXT;
+            lvi.iItem = ListView_GetItemCount(m_hTransferList);
+            lvi.pszText = const_cast<wchar_t*>(displayText.c_str());
+            int rowIdx = ListViewInsertItemW(m_hTransferList, &lvi);
+
+            m_listRows.push_back({i, -1});
+            ListView_SetCheckState(m_hTransferList, rowIdx, item.isChecked);
+
+            if (item.isExpanded) {
+                // サブファイルをインデント表示
+                for (size_t j = 0; j < item.subFiles.size(); ++j) {
+                    const auto& sf = item.subFiles[j];
+                    std::wstring subText = L"      " + sf.relativePath + L" (" + FormatFileSize(sf.fileSize) + L")";
+
+                    LVITEMW subLvi{};
+                    subLvi.mask = LVIF_TEXT;
+                    subLvi.iItem = ListView_GetItemCount(m_hTransferList);
+                    subLvi.pszText = const_cast<wchar_t*>(subText.c_str());
+                    int subRowIdx = ListViewInsertItemW(m_hTransferList, &subLvi);
+
+                    m_listRows.push_back({i, static_cast<int>(j)});
+                    ListView_SetCheckState(m_hTransferList, subRowIdx, sf.isChecked);
+                }
+            }
+        } else {
+            // 単一ファイル行
+            std::wstring displayText = item.folderName + L" (" + FormatFileSize(item.totalBytes) + L")";
+
+            LVITEMW lvi{};
+            lvi.mask = LVIF_TEXT;
+            lvi.iItem = ListView_GetItemCount(m_hTransferList);
+            lvi.pszText = const_cast<wchar_t*>(displayText.c_str());
+            int rowIdx = ListViewInsertItemW(m_hTransferList, &lvi);
+
+            m_listRows.push_back({i, -1});
+            ListView_SetCheckState(m_hTransferList, rowIdx, item.isChecked);
+        }
+    }
+
+    m_isUpdatingListChecks = false;
+    UpdateTransferSummary();
+}
+
+void MainWindow::OnTransferListClick(int itemIndex) {
+    if (itemIndex < 0 || itemIndex >= static_cast<int>(m_listRows.size())) return;
+
+    const auto& row = m_listRows[itemIndex];
+    if (row.subFileIndex == -1 && row.rootIndex < m_transferItems.size()) {
+        auto& item = m_transferItems[row.rootIndex];
+        if (item.isDirectory) {
+            // フォルダの展開 / 折りたたみをトグル
+            item.isExpanded = !item.isExpanded;
+            RefreshTransferListView();
+        }
+    }
+}
+
+void MainWindow::OnTransferListItemChanged(NMLISTVIEW* nmlv) {
+    if (m_isUpdatingListChecks) return;
+    if (!(nmlv->uChanged & LVIF_STATE)) return;
+
+    int oldState = (nmlv->uOldState >> 12) & 15;
+    int newState = (nmlv->uNewState >> 12) & 15;
+    if (oldState == newState || newState == 0) return;
+
+    bool isChecked = (newState == 2);
+    int rowIdx = nmlv->iItem;
+    if (rowIdx < 0 || rowIdx >= static_cast<int>(m_listRows.size())) return;
+
+    auto row = m_listRows[rowIdx];
+    if (row.rootIndex >= m_transferItems.size()) return;
+    auto& rootItem = m_transferItems[row.rootIndex];
+
+    if (row.subFileIndex == -1) {
+        // 親フォルダ/ルートファイルのチェック変更
+        rootItem.isChecked = isChecked;
+        for (auto& sf : rootItem.subFiles) {
+            sf.isChecked = isChecked;
+        }
+
+        // 展開中の子行のチェックボックス表示を連動
+        m_isUpdatingListChecks = true;
+        for (size_t r = 0; r < m_listRows.size(); ++r) {
+            if (m_listRows[r].rootIndex == row.rootIndex && m_listRows[r].subFileIndex >= 0) {
+                ListView_SetCheckState(m_hTransferList, r, isChecked);
+            }
+        }
+        m_isUpdatingListChecks = false;
+    } else {
+        // 個別子ファイルのチェック変更
+        if (row.subFileIndex < static_cast<int>(rootItem.subFiles.size())) {
+            rootItem.subFiles[row.subFileIndex].isChecked = isChecked;
+        }
+
+        bool anyChecked = false;
+        for (const auto& sf : rootItem.subFiles) {
+            if (sf.isChecked) anyChecked = true;
+        }
+        rootItem.isChecked = anyChecked;
+
+        // 親行のチェックボックス表示を連動
+        m_isUpdatingListChecks = true;
+        for (size_t r = 0; r < m_listRows.size(); ++r) {
+            if (m_listRows[r].rootIndex == row.rootIndex && m_listRows[r].subFileIndex == -1) {
+                ListView_SetCheckState(m_hTransferList, r, rootItem.isChecked);
+                break;
+            }
+        }
+        m_isUpdatingListChecks = false;
+    }
+
+    UpdateTransferSummary();
+}
+
 void MainWindow::UpdateTransferSummary() {
     int totalCheckedFiles = 0;
     uint64_t totalCheckedBytes = 0;
 
-    int count = ListView_GetItemCount(m_hTransferList);
-    for (int i = 0; i < count; ++i) {
-        if (ListView_GetCheckState(m_hTransferList, i)) {
-            if (i < static_cast<int>(m_transferItems.size())) {
-                totalCheckedFiles += m_transferItems[i].fileCount;
-                totalCheckedBytes += m_transferItems[i].totalBytes;
+    for (const auto& item : m_transferItems) {
+        for (const auto& sf : item.subFiles) {
+            if (sf.isChecked) {
+                totalCheckedFiles++;
+                totalCheckedBytes += sf.fileSize;
             }
         }
     }
@@ -78,6 +247,27 @@ void MainWindow::UpdateTransferSummary() {
     };
     std::wstring summary = tW("transfer.summary_format", params);
     SetWindowTextW(m_hTransferSummaryText, summary.c_str());
+}
+
+void MainWindow::SaveTransferListToConfig() {
+    if (!m_config) return;
+    std::vector<std::wstring> paths;
+    for (const auto& item : m_transferItems) {
+        paths.push_back(item.localPath);
+    }
+    m_config->SetTransferPaths(paths);
+    m_config->Save(L"");
+}
+
+void MainWindow::LoadTransferListFromConfig() {
+    if (!m_config) return;
+    const auto& paths = m_config->GetTransferPaths();
+    for (const auto& p : paths) {
+        if (GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            AddTransferItem(p);
+        }
+    }
+    RefreshTransferListView();
 }
 
 void MainWindow::OnAddPreset() {
@@ -99,22 +289,25 @@ void MainWindow::OnAddPreset() {
     if (lastSlash != std::string::npos && lastSlash + 1 < name.length()) {
         name = name.substr(lastSlash + 1);
     }
-    if (m_selectedRemotePath.find("/storage/") != std::string::npos) {
-        name = t("preset.prefix_sd") + name;
-    } else {
-        name = t("preset.prefix_internal") + name;
+
+    for (const auto& p : m_config->GetPresets()) {
+        if (p.remotePath == m_selectedRemotePath) {
+            MessageBoxW(m_hwnd, tW("preset.warn_already_exists").c_str(), tW("messages.warn_no_dest_title").c_str(), MB_OK | MB_ICONINFORMATION);
+            return;
+        }
     }
 
-    size_t prevCount = m_config->GetPresets().size();
-    m_config->AddPreset(name, m_selectedRemotePath);
-    if (m_config->GetPresets().size() == prevCount) {
-        MessageBoxW(m_hwnd, tW("preset.warn_already_exists").c_str(), tW("messages.warn_no_dest_title").c_str(), MB_OK | MB_ICONINFORMATION);
-        return;
+    std::string prefix = "";
+    if (m_selectedRemotePath.find("/sdcard") == 0) {
+        prefix = I18nManager::WideToUtf8(tW("preset.prefix_internal"));
+    } else if (m_selectedRemotePath.find("/storage/") == 0) {
+        prefix = I18nManager::WideToUtf8(tW("preset.prefix_sd"));
     }
 
+    m_config->AddPreset(prefix + name, m_selectedRemotePath);
     m_config->Save(L"");
     RefreshPresetButtons();
-    MessageBoxW(m_hwnd, tW("preset.success_added").c_str(), tW("progress.ready").c_str(), MB_OK | MB_ICONINFORMATION);
+    MessageBoxW(m_hwnd, tW("preset.success_added").c_str(), tW("messages.register_success_title").c_str(), MB_OK | MB_ICONINFORMATION);
 }
 
 void MainWindow::OnPresetRightClick(size_t index) {
@@ -152,62 +345,55 @@ void MainWindow::OnDropFiles(HDROP hDrop) {
     for (UINT i = 0; i < count; ++i) {
         wchar_t path[MAX_PATH * 2] = {0};
         if (DragQueryFileW(hDrop, i, path, ARRAYSIZE(path)) > 0) {
-            TransferItemInfo item;
-            item.localPath = path;
-            DWORD attr = GetFileAttributesW(path);
-            item.isDirectory = (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY));
-            CalculateItemSize(path, item.totalBytes, item.fileCount);
-            m_transferItems.push_back(item);
-
-            std::wstring fullPath = path;
-            size_t lastSlash = fullPath.find_last_of(L"\\/");
-            std::wstring fileName = (lastSlash != std::wstring::npos) ? fullPath.substr(lastSlash + 1) : fullPath;
-            std::wstring parentDir = (lastSlash != std::wstring::npos) ? fullPath.substr(0, lastSlash) : L"";
-            std::wstring displayText = fileName;
-            if (item.isDirectory) {
-                displayText += L" [フォルダ]";
-            }
-            if (!parentDir.empty()) {
-                displayText += L" (" + parentDir + L")";
-            }
-
-            LVITEMW lvi{};
-            lvi.mask = LVIF_TEXT;
-            lvi.iItem = ListView_GetItemCount(m_hTransferList);
-            lvi.pszText = const_cast<wchar_t*>(displayText.c_str());
-            int itemIdx = ListViewInsertItemW(m_hTransferList, &lvi);
-            ListView_SetCheckState(m_hTransferList, itemIdx, TRUE);
+            AddTransferItem(path);
         }
     }
     DragFinish(hDrop);
 
-    UpdateTransferSummary();
-    SetProgressStatus("progress.items_added", {{"count", std::to_wstring(ListView_GetItemCount(m_hTransferList))}});
+    RefreshTransferListView();
+    SaveTransferListToConfig();
 
+    SetProgressStatus("progress.items_added", {{"count", std::to_wstring(m_transferItems.size())}});
     InvalidateRect(m_hTransferList, nullptr, TRUE);
     UpdateWindow(m_hTransferList);
 }
 
 void MainWindow::OnRemoveChecked() {
-    int count = ListView_GetItemCount(m_hTransferList);
     int removedCount = 0;
-    for (int i = count - 1; i >= 0; --i) {
-        if (ListView_GetCheckState(m_hTransferList, i)) {
-            ListView_DeleteItem(m_hTransferList, i);
-            if (i < static_cast<int>(m_transferItems.size())) {
-                m_transferItems.erase(m_transferItems.begin() + i);
-            }
+    for (int i = static_cast<int>(m_transferItems.size()) - 1; i >= 0; --i) {
+        auto& item = m_transferItems[i];
+        if (item.isChecked) {
+            m_transferItems.erase(m_transferItems.begin() + i);
             removedCount++;
+        } else {
+            // 子ファイルの一部がチェックされている場合
+            for (int j = static_cast<int>(item.subFiles.size()) - 1; j >= 0; --j) {
+                if (item.subFiles[j].isChecked) {
+                    item.subFiles.erase(item.subFiles.begin() + j);
+                    removedCount++;
+                }
+            }
+            if (item.subFiles.empty()) {
+                m_transferItems.erase(m_transferItems.begin() + i);
+            } else {
+                item.fileCount = static_cast<int>(item.subFiles.size());
+                uint64_t newTotal = 0;
+                for (const auto& sf : item.subFiles) newTotal += sf.fileSize;
+                item.totalBytes = newTotal;
+            }
         }
     }
 
-    UpdateTransferSummary();
+    RefreshTransferListView();
+    SaveTransferListToConfig();
     SetProgressStatus("progress.items_removed", {{"removed", std::to_wstring(removedCount)}, {"remain", std::to_wstring(m_transferItems.size())}});
 }
 
 void MainWindow::OnClearTransferList() {
     m_transferItems.clear();
+    m_listRows.clear();
     ListView_DeleteAllItems(m_hTransferList);
+    SaveTransferListToConfig();
     UpdateTransferSummary();
     SendMessageW(m_hProgressBar, PBM_SETPOS, 0, 0);
     SetProgressStatus("progress.list_cleared");
@@ -227,25 +413,59 @@ void MainWindow::OnStartTransfer() {
         return;
     }
 
-    std::vector<std::wstring> filesToTransfer;
+    std::string remoteDir = m_selectedRemotePath;
+    if (!remoteDir.empty() && remoteDir.back() == '/') {
+        remoteDir.pop_back();
+    }
+    std::string targetDevice = m_connState.targetSerial;
+
+    // チェックされているファイルから転送タスクを生成
+    std::vector<TransferTask> tasks;
     uint64_t totalRequiredBytes = 0;
-    int count = ListView_GetItemCount(m_hTransferList);
-    for (int i = 0; i < count; ++i) {
-        if (ListView_GetCheckState(m_hTransferList, i)) {
-            if (i < static_cast<int>(m_transferItems.size())) {
-                filesToTransfer.push_back(m_transferItems[i].localPath);
-                totalRequiredBytes += m_transferItems[i].totalBytes;
+
+    for (const auto& item : m_transferItems) {
+        if (item.isDirectory) {
+            for (const auto& sf : item.subFiles) {
+                if (sf.isChecked) {
+                    TransferTask t;
+                    t.localFilePath = sf.localPath;
+                    t.fileSize = sf.fileSize;
+
+                    // サブディレクトリ階層の計算
+                    size_t lastSlash = sf.relativePath.find_last_of(L"\\/");
+                    std::string subDirUtf8 = "";
+                    if (lastSlash != std::wstring::npos) {
+                        std::wstring subDirW = sf.relativePath.substr(0, lastSlash);
+                        for (auto& ch : subDirW) {
+                            if (ch == L'\\') ch = L'/';
+                        }
+                        subDirUtf8 = "/" + I18nManager::WideToUtf8(subDirW);
+                    }
+
+                    // フォルダ構成を完全再現: remoteDir / フォルダ名 / [サブディレクトリ]
+                    t.remoteTargetDir = remoteDir + "/" + I18nManager::WideToUtf8(item.folderName) + subDirUtf8;
+                    t.relativePathForDisplay = I18nManager::WideToUtf8(item.folderName + L"/" + sf.relativePath);
+                    tasks.push_back(t);
+                    totalRequiredBytes += sf.fileSize;
+                }
+            }
+        } else {
+            if (item.isChecked && !item.subFiles.empty()) {
+                TransferTask t;
+                t.localFilePath = item.localPath;
+                t.fileSize = item.totalBytes;
+                t.remoteTargetDir = remoteDir;
+                t.relativePathForDisplay = I18nManager::WideToUtf8(item.folderName);
+                tasks.push_back(t);
+                totalRequiredBytes += item.totalBytes;
             }
         }
     }
 
-    if (filesToTransfer.empty()) {
+    if (tasks.empty()) {
         MessageBoxW(m_hwnd, tW("messages.warn_no_files_msg").c_str(), tW("messages.warn_no_files_title").c_str(), MB_OK | MB_ICONWARNING);
         return;
     }
-
-    std::string remoteDir = m_selectedRemotePath;
-    std::string targetDevice = m_connState.targetSerial;
 
     int64_t availableBytes = m_adb->GetRemoteAvailableSpace(targetDevice, remoteDir);
     if (availableBytes >= 0 && totalRequiredBytes > static_cast<uint64_t>(availableBytes)) {
@@ -263,9 +483,9 @@ void MainWindow::OnStartTransfer() {
     EnableWindow(m_hBtnRemoveChecked, FALSE);
     EnableWindow(m_hBtnClearTransfer, FALSE);
 
-    std::thread([this, filesToTransfer, remoteDir, targetDevice]() {
-        auto results = m_engine->TransferBatch(
-            *m_adb, targetDevice, filesToTransfer, remoteDir,
+    std::thread([this, tasks, targetDevice]() {
+        auto results = m_engine->TransferTasks(
+            *m_adb, targetDevice, tasks,
             [this](int cur, int total, const std::string& msg, int pct) {
                 struct ProgData {
                     int percent;

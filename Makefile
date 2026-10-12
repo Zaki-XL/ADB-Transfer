@@ -3,6 +3,10 @@ CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -DUNICODE -D_UNICODE -Iinclude
 LDFLAGS_GUI ?= -static -municode -mwindows -lcomctl32 -luxtheme
 LDFLAGS_TEST ?= -static -municode -lcomctl32 -luxtheme
 
+WINDRES ?= windres
+RC_SRC = res/AdbTransfer.rc
+RC_OBJ = res/AdbTransfer.res.o
+
 SRCS = src/ConfigManager.cpp \
        src/I18nManager.cpp \
        src/AdbManager.cpp \
@@ -33,9 +37,12 @@ TEST_OBJS = $(TEST_SRCS:.cpp=.o)
 
 all: bin/AdbTransfer.exe tests/test_runner.exe sync_lang
 
-bin/AdbTransfer.exe: $(OBJS)
+$(RC_OBJ): $(RC_SRC) res/icon.ico res/resource.h
+	$(WINDRES) -Ires -i $< -o $@
+
+bin/AdbTransfer.exe: $(OBJS) $(RC_OBJ)
 	@mkdir -p bin
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS_GUI)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(RC_OBJ) $(LDFLAGS_GUI)
 	@if [ -d Release ]; then rm -f Release/AdbTransfer.exe && cp $@ Release/AdbTransfer.exe; fi
 
 tests/test_runner.exe: $(TEST_OBJS)
@@ -51,6 +58,6 @@ sync_lang:
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TEST_OBJS) bin/AdbTransfer.exe tests/test_runner.exe
+	rm -f $(OBJS) $(TEST_OBJS) $(RC_OBJ) bin/AdbTransfer.exe tests/test_runner.exe
 
 .PHONY: all clean sync_lang

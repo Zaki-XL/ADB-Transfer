@@ -52,6 +52,17 @@ void TestConfigManager() {
     assert(loadedConfig.GetPresets().size() == 1);
     assert(loadedConfig.GetPresets()[0].name == "[内蔵] Comic");
 
+    // 転送リスト・転送先保持テスト
+    config.SetTransferPaths({L"E:\\Test\\Folder1", L"E:\\Test\\file2.zip"});
+    config.SetLastRemotePath("/storage/8144-1008/PV_Data");
+    config.Save(testIni);
+    AdbTransfer::ConfigManager loadedConfig2;
+    loadedConfig2.Load(testIni);
+    assert(loadedConfig2.GetTransferPaths().size() == 2);
+    assert(loadedConfig2.GetTransferPaths()[0] == L"E:\\Test\\Folder1");
+    assert(loadedConfig2.GetTransferPaths()[1] == L"E:\\Test\\file2.zip");
+    assert(loadedConfig2.GetLastRemotePath() == "/storage/8144-1008/PV_Data");
+
     DeleteFileW(testIni.c_str());
     std::cout << "[PASS] TestConfigManager passed!" << std::endl;
 }

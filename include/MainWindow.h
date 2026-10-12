@@ -17,7 +17,7 @@ namespace AdbTransfer {
 
 // アプリケーションバージョン (Semantic Versioning: MAJOR.MINOR.PATCH)
 // 機能追加時は MINOR (第2), 機能修正時は PATCH (第3) をカウントアップ
-constexpr const wchar_t* APP_VERSION = L"1.0.1";
+constexpr const wchar_t* APP_VERSION = L"1.1.0";
 
 // カスタムメッセージ
 constexpr UINT WM_APP_CONNECT_COMPLETE    = WM_APP + 1;
@@ -36,6 +36,30 @@ public:
     void OnPresetRightClick(size_t index);
     void OnDropFiles(HDROP hDrop);
     HBRUSH GetBgBrush() const { return m_hBgBrush; }
+
+    // 展開式ファイル転送リスト用構造体
+    struct SubFileInfo {
+        std::wstring localPath;
+        std::wstring relativePath;
+        uint64_t fileSize = 0;
+        bool isChecked = true;
+    };
+
+    struct TransferItemInfo {
+        std::wstring localPath;
+        std::wstring folderName;
+        bool isDirectory = false;
+        uint64_t totalBytes = 0;
+        int fileCount = 0;
+        bool isExpanded = false; // 展開中フラグ (true: "v ", false: "> ")
+        bool isChecked = true;
+        std::vector<SubFileInfo> subFiles;
+    };
+
+    struct TransferListRow {
+        size_t rootIndex = 0;
+        int subFileIndex = -1; // -1: ルートアイテム, >= 0: サブファイル
+    };
 
 private:
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -66,12 +90,13 @@ private:
     void OnLanguageChanged();
     RECT GetSplitterRect() const;
 
-    struct TransferItemInfo {
-        std::wstring localPath;
-        bool isDirectory = false;
-        uint64_t totalBytes = 0;
-        int fileCount = 0;
-    };
+    // 展開式ファイル転送リスト用メソッド
+    void AddTransferItem(const std::wstring& path);
+    void RefreshTransferListView();
+    void SaveTransferListToConfig();
+    void LoadTransferListFromConfig();
+    void OnTransferListClick(int itemIndex);
+    void OnTransferListItemChanged(NMLISTVIEW* nmlv);
 
     HINSTANCE m_hInstance = nullptr;
     HWND m_hwnd = nullptr;
@@ -133,6 +158,8 @@ private:
     ConnectionState m_connState;
     std::string m_selectedRemotePath; // 選択中の転送先フォルダ
     std::vector<TransferItemInfo> m_transferItems;
+    std::vector<TransferListRow> m_listRows;
+    bool m_isUpdatingListChecks = false;
     bool m_isTransferring = false;
     bool m_isConnectingOrScanning = false;
 

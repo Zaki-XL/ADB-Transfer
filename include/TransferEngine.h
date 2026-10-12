@@ -18,20 +18,33 @@ struct TransferResult {
     std::string errorMessage;
 };
 
+struct TransferTask {
+    std::wstring localFilePath;          // 送信するローカルファイルフルパス
+    std::string remoteTargetDir;         // 送信先のリモートディレクトリパス
+    std::string relativePathForDisplay;  // 進捗・結果表示用相対パス
+    uint64_t fileSize = 0;
+};
+
 using ProgressCallback = std::function<void(int currentItem, int totalItems, const std::string& statusMsg, int percent)>;
 
 class TransferEngine {
 public:
     TransferEngine() = default;
 
-    // ファイルまたはフォルダの転送実行とベリファイ
+    // 個別タスク（ファイル・ディレクトリ構造維持）の一括転送実行
+    std::vector<TransferResult> TransferTasks(const AdbManager& adb,
+                                              const std::string& targetDevice,
+                                              const std::vector<TransferTask>& tasks,
+                                              ProgressCallback progressCb = nullptr);
+
+    // ファイルまたはフォルダの転送実行とベリファイ (互換用)
     TransferResult Transfer(const AdbManager& adb,
                             const std::string& targetDevice,
                             const std::wstring& localPath,
                             const std::string& remoteDir,
                             ProgressCallback progressCb = nullptr);
 
-    // 複数アイテムの一括転送
+    // 複数アイテムの一括転送 (互換用)
     std::vector<TransferResult> TransferBatch(const AdbManager& adb,
                                               const std::string& targetDevice,
                                               const std::vector<std::wstring>& localPaths,

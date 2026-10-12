@@ -267,8 +267,6 @@ void MainWindow::UpdateUIConnectionState(bool isConnected, bool isScanning) {
     if (m_hBtnClearTransfer) EnableWindow(m_hBtnClearTransfer, (isReady && !m_isTransferring) ? TRUE : FALSE);
 
     if (!isConnected) {
-        m_selectedRemotePath.clear();
-        if (m_hTransferDestText) SetWindowTextW(m_hTransferDestText, tW("transfer.dest_none").c_str());
         if (m_hTreeStorage) TreeView_DeleteAllItems(m_hTreeStorage);
     }
     UpdateTransferButtonState();

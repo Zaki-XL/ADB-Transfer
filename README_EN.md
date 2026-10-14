@@ -16,8 +16,8 @@ Solves fundamental issues commonly encountered with traditional MTP connections,
 - **Full Folder Structure Replication & Expandable File Selection (v1.1.0)**:
   - Folders in the transfer list can be expanded (`> `) to select individual files for transfer.
   - Accurately replicates local folder structures on the device (`mkdir -p`).
-- **Real-Time Transfer Speed & ETA Calculation (v1.2.0)**:
-  - Dynamically calculates transfer speed (`MB/s` / `KB/s`) and estimated time of arrival (ETA) using high-precision timers and progress tracking.
+- **Real-Time Transfer Speed & Overall Progress Display (v1.2.0)**:
+  - Dynamically calculates instantaneous transfer speed (`MB/s` / `KB/s`) and overall completion percentage (`Overall XX%`) in real time on the progress bar.
 - **Mid-Transfer Stop/Cancel Support (v1.2.0)**:
   - The start button transitions into a "Stop" button during transfers, allowing users to safely interrupt execution at any time.
 - **Instant Per-File Queue Removal & Auto-Persistence (v1.2.0)**:

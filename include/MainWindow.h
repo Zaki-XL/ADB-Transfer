@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <thread>
+#include <atomic>
 #include "AdbManager.h"
 #include "ConfigManager.h"
 #include "DeviceManager.h"
@@ -17,7 +18,7 @@ namespace AdbTransfer {
 
 // アプリケーションバージョン (Semantic Versioning: MAJOR.MINOR.PATCH)
 // 機能追加時は MINOR (第2), 機能修正時は PATCH (第3) をカウントアップ
-constexpr const wchar_t* APP_VERSION = L"1.1.0";
+constexpr const wchar_t* APP_VERSION = L"1.2.1";
 
 // カスタムメッセージ
 constexpr UINT WM_APP_CONNECT_COMPLETE    = WM_APP + 1;
@@ -25,6 +26,7 @@ constexpr UINT WM_APP_SCAN_STORAGE_DONE   = WM_APP + 2;
 constexpr UINT WM_APP_SCAN_DIR_DONE       = WM_APP + 3;
 constexpr UINT WM_APP_TRANSFER_PROGRESS   = WM_APP + 4;
 constexpr UINT WM_APP_TRANSFER_COMPLETE   = WM_APP + 5;
+constexpr UINT WM_APP_TRANSFER_FILE_DONE   = WM_APP + 6;
 
 class MainWindow {
 public:
@@ -36,6 +38,7 @@ public:
     void OnPresetRightClick(size_t index);
     void OnDropFiles(HDROP hDrop);
     HBRUSH GetBgBrush() const { return m_hBgBrush; }
+    int ShowCenteredMessageBox(const std::wstring& message, const std::wstring& title, UINT uType = MB_OK | MB_ICONINFORMATION);
 
     // 展開式ファイル転送リスト用構造体
     struct SubFileInfo {
@@ -97,6 +100,7 @@ private:
     void LoadTransferListFromConfig();
     void OnTransferListClick(int itemIndex);
     void OnTransferListItemChanged(NMLISTVIEW* nmlv);
+    void RemoveCompletedFile(const std::wstring& localPath);
 
     HINSTANCE m_hInstance = nullptr;
     HWND m_hwnd = nullptr;
@@ -161,6 +165,7 @@ private:
     std::vector<TransferListRow> m_listRows;
     bool m_isUpdatingListChecks = false;
     bool m_isTransferring = false;
+    std::atomic<bool> m_cancelRequested{false};
     bool m_isConnectingOrScanning = false;
 
     struct UiStatusState {

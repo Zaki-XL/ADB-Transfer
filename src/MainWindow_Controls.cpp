@@ -51,6 +51,100 @@ static LRESULT CALLBACK ListViewDropSubclassProc(
     return DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
+// パステルグラデーション描画用プログレスバーサブクラス
+static LRESULT CALLBACK ProgressBarSubclassProc(
+    HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+    UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+{
+    (void)dwRefData;
+    if (uMsg == WM_PAINT) {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
+        if (hdc) {
+            RECT rc;
+            GetClientRect(hWnd, &rc);
+            int width = rc.right - rc.left;
+            int height = rc.bottom - rc.top;
+
+            if (width > 0 && height > 0) {
+                // ダブルバッファリング用メモリDC
+                HDC memDC = CreateCompatibleDC(hdc);
+                HBITMAP memBmp = CreateCompatibleBitmap(hdc, width, height);
+                HGDIOBJ oldBmp = SelectObject(memDC, memBmp);
+
+                // 背景色: 薄いスレートグレー (#F1F5F9)
+                HBRUSH bgBrush = CreateSolidBrush(RGB(241, 245, 249));
+                FillRect(memDC, &rc, bgBrush);
+                DeleteObject(bgBrush);
+
+                // 現在のパーセント取得 (0〜100)
+                LRESULT curPos = DefSubclassProc(hWnd, PBM_GETPOS, 0, 0);
+                PBRANGE range{};
+                DefSubclassProc(hWnd, PBM_GETRANGE, TRUE, (LPARAM)&range);
+                int minVal = range.iLow;
+                int maxVal = range.iHigh;
+                if (maxVal <= minVal) maxVal = 100;
+                int percent = static_cast<int>((curPos - minVal) * 100LL / (maxVal - minVal));
+                if (percent < 0) percent = 0;
+                if (percent > 100) percent = 100;
+
+                int fillWidth = (width - 4) * percent / 100;
+
+                // ゲージ領域のパステルグラデーション描画
+                // 開始色: パステルスカイブルー RGB(125, 211, 252) #7DD3FC
+                // 終了色: パステルミントグリーン RGB(110, 231, 183) #6EE7B7
+                if (fillWidth > 0) {
+                    int gaugeTop = 2;
+                    int gaugeBottom = height - 2;
+
+                    for (int x = 0; x < fillWidth; ++x) {
+                        float t = (width > 4) ? (static_cast<float>(x) / static_cast<float>(width - 4)) : 0.0f;
+                        if (t > 1.0f) t = 1.0f;
+
+                        int r = static_cast<int>(125 * (1.0f - t) + 110 * t);
+                        int g = static_cast<int>(211 * (1.0f - t) + 231 * t);
+                        int b = static_cast<int>(252 * (1.0f - t) + 183 * t);
+
+                        RECT colRc{ 2 + x, gaugeTop, 2 + x + 1, gaugeBottom };
+                        HBRUSH colBrush = CreateSolidBrush(RGB(r, g, b));
+                        FillRect(memDC, &colRc, colBrush);
+                        DeleteObject(colBrush);
+                    }
+                }
+
+                // 繊細な外枠ボーダー: RGB(203, 213, 225) #CBD5E1
+                HPEN borderPen = CreatePen(PS_SOLID, 1, RGB(203, 213, 225));
+                HGDIOBJ oldPen = SelectObject(memDC, borderPen);
+                HGDIOBJ oldNullBrush = SelectObject(memDC, GetStockObject(NULL_BRUSH));
+
+                Rectangle(memDC, 0, 0, width, height);
+
+                SelectObject(memDC, oldNullBrush);
+                SelectObject(memDC, oldPen);
+                DeleteObject(borderPen);
+
+                // 画面へ転送
+                BitBlt(hdc, 0, 0, width, height, memDC, 0, 0, SRCCOPY);
+
+                SelectObject(memDC, oldBmp);
+                DeleteObject(memBmp);
+                DeleteDC(memDC);
+            }
+            EndPaint(hWnd, &ps);
+            return 0;
+        }
+    } else if (uMsg == WM_ERASEBKGND) {
+        return 1; // チラつき防止
+    } else if (uMsg == PBM_SETPOS || uMsg == PBM_DELTAPOS || uMsg == PBM_SETRANGE || uMsg == PBM_SETRANGE32) {
+        LRESULT res = DefSubclassProc(hWnd, uMsg, wParam, lParam);
+        InvalidateRect(hWnd, nullptr, FALSE);
+        return res;
+    } else if (uMsg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hWnd, ProgressBarSubclassProc, uIdSubclass);
+    }
+    return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+}
+
 void MainWindow::InitControls() {
     // 1. ヘッダーエリア
     m_hHeaderGroup = CreateWindowExW(0, L"BUTTON", L"端末接続状態",
@@ -159,7 +253,9 @@ void MainWindow::InitControls() {
     // 5. 下部進捗バー＆ステータス
     m_hProgressBar = CreateWindowExW(0, PROGRESS_CLASSW, L"",
         WS_CHILD | WS_VISIBLE | PBS_SMOOTH | WS_CLIPSIBLINGS, 10, 580, 940, 20, m_hwnd, nullptr, m_hInstance, nullptr);
+    SetWindowTheme(m_hProgressBar, L"", L""); // Windows標準スタイルを解除してカスタム描画を有効化
     SendMessageW(m_hProgressBar, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
+    SetWindowSubclass(m_hProgressBar, ProgressBarSubclassProc, 5, (DWORD_PTR)this);
 
     m_hProgressText = CreateWindowExW(0, L"STATIC", L"準備完了",
         WS_CHILD | WS_VISIBLE | SS_LEFT | WS_CLIPSIBLINGS, 10, 605, 940, 22, m_hwnd, nullptr, m_hInstance, nullptr);
@@ -197,7 +293,7 @@ void MainWindow::ApplyLanguage() {
     lvc.pszText = const_cast<wchar_t*>(tW("transfer.col_name").c_str());
     ListViewSetColumnW(m_hTransferList, 0, &lvc);
 
-    SetWindowTextW(m_hBtnStartTransfer, tW("transfer.btn_start").c_str());
+    SetWindowTextW(m_hBtnStartTransfer, (m_isTransferring ? tW("transfer.btn_stop") : tW("transfer.btn_start")).c_str());
     SetWindowTextW(m_hBtnRemoveChecked, tW("transfer.btn_remove").c_str());
     SetWindowTextW(m_hBtnClearTransfer, tW("transfer.btn_clear").c_str());
 
@@ -251,8 +347,14 @@ void MainWindow::OnLanguageChanged() {
 
 void MainWindow::UpdateTransferButtonState() {
     if (!m_hBtnStartTransfer) return;
-    bool canTransfer = !m_isTransferring && !m_selectedRemotePath.empty();
-    EnableWindow(m_hBtnStartTransfer, canTransfer ? TRUE : FALSE);
+    if (m_isTransferring) {
+        SetWindowTextW(m_hBtnStartTransfer, tW("transfer.btn_stop").c_str());
+        EnableWindow(m_hBtnStartTransfer, TRUE);
+    } else {
+        SetWindowTextW(m_hBtnStartTransfer, tW("transfer.btn_start").c_str());
+        bool canTransfer = !m_selectedRemotePath.empty();
+        EnableWindow(m_hBtnStartTransfer, canTransfer ? TRUE : FALSE);
+    }
 }
 
 void MainWindow::UpdateUIConnectionState(bool isConnected, bool isScanning) {

@@ -3,6 +3,58 @@
 
 namespace AdbTransfer {
 
+static HHOOK g_hCbtHook = nullptr;
+static HWND g_hParentForMsgBox = nullptr;
+
+static LRESULT CALLBACK CbtHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode == HCBT_ACTIVATE) {
+        HWND hDlg = reinterpret_cast<HWND>(wParam);
+        if (g_hParentForMsgBox && IsWindow(g_hParentForMsgBox)) {
+            RECT rcParent, rcDlg;
+            GetWindowRect(g_hParentForMsgBox, &rcParent);
+            GetWindowRect(hDlg, &rcDlg);
+
+            int dlgW = rcDlg.right - rcDlg.left;
+            int dlgH = rcDlg.bottom - rcDlg.top;
+
+            int parentW = rcParent.right - rcParent.left;
+            int parentH = rcParent.bottom - rcParent.top;
+
+            int x = rcParent.left + (parentW - dlgW) / 2;
+            int y = rcParent.top + (parentH - dlgH) / 2;
+
+            HMONITOR hMon = MonitorFromWindow(g_hParentForMsgBox, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO mi{};
+            mi.cbSize = sizeof(mi);
+            if (GetMonitorInfoW(hMon, &mi)) {
+                if (x < mi.rcWork.left) x = mi.rcWork.left;
+                if (y < mi.rcWork.top) y = mi.rcWork.top;
+                if (x + dlgW > mi.rcWork.right) x = mi.rcWork.right - dlgW;
+                if (y + dlgH > mi.rcWork.bottom) y = mi.rcWork.bottom - dlgH;
+            }
+
+            SetWindowPos(hDlg, nullptr, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        if (g_hCbtHook) {
+            UnhookWindowsHookEx(g_hCbtHook);
+            g_hCbtHook = nullptr;
+        }
+    }
+    return CallNextHookEx(g_hCbtHook, nCode, wParam, lParam);
+}
+
+int MainWindow::ShowCenteredMessageBox(const std::wstring& message, const std::wstring& title, UINT uType) {
+    g_hParentForMsgBox = m_hwnd;
+    g_hCbtHook = SetWindowsHookExW(WH_CBT, CbtHookProc, nullptr, GetCurrentThreadId());
+    int res = MessageBoxW(m_hwnd, message.c_str(), title.c_str(), uType);
+    if (g_hCbtHook) {
+        UnhookWindowsHookEx(g_hCbtHook);
+        g_hCbtHook = nullptr;
+    }
+    g_hParentForMsgBox = nullptr;
+    return res;
+}
+
 MainWindow::MainWindow() {
     m_adb = std::make_unique<AdbManager>();
     m_config = std::make_unique<ConfigManager>();
@@ -196,7 +248,7 @@ void MainWindow::OnReconnect() {
 }
 
 void MainWindow::OnRegisterDevice() {
-    int res = MessageBoxW(m_hwnd, tW("messages.confirm_register_msg").c_str(), tW("messages.confirm_register_title").c_str(), MB_YESNO | MB_ICONQUESTION);
+    int res = ShowCenteredMessageBox(tW("messages.confirm_register_msg"), tW("messages.confirm_register_title"), MB_YESNO | MB_ICONQUESTION);
     if (res != IDYES) return;
 
     UpdateUIConnectionState(false, true);
@@ -212,9 +264,9 @@ void MainWindow::OnRegisterDevice() {
 
         if (ok) {
             std::map<std::string, std::wstring> params = { {"ip", Utf8ToUtf16(m_config->GetDevice().ip)} };
-            MessageBoxW(m_hwnd, tW("messages.register_success_msg", params).c_str(), tW("messages.register_success_title").c_str(), MB_OK | MB_ICONINFORMATION);
+            ShowCenteredMessageBox(tW("messages.register_success_msg", params), tW("messages.register_success_title"), MB_OK | MB_ICONINFORMATION);
         } else {
-            MessageBoxW(m_hwnd, tW("messages.register_fail_msg").c_str(), tW("messages.register_fail_title").c_str(), MB_OK | MB_ICONERROR);
+            ShowCenteredMessageBox(tW("messages.register_fail_msg"), tW("messages.register_fail_title"), MB_OK | MB_ICONERROR);
         }
     }).detach();
 }
@@ -274,16 +326,33 @@ void MainWindow::OnTreeSelectionChanged(NMTREEVIEWW* nmtv) {
     TreeViewGetItemW(m_hTreeStorage, &item);
 
     auto pData = reinterpret_cast<TreeNodeData*>(item.lParam);
-    if (pData) {
-        m_selectedRemotePath = pData->fullPath;
-        if (m_config) {
-            m_config->SetLastRemotePath(m_selectedRemotePath);
-            m_config->Save(L"");
+    if (!pData) return;
+
+    // フォーカス移動やシステム都合による暗黙の選択（TVC_UNKNOWN）の場合
+    if (nmtv->action == TVC_UNKNOWN) {
+        // INI（または既存の転送先）に有効な記憶がある場合は、ツリーの暗黙選択（/sdcard等）で上書きせずINIを最優先保持
+        std::string savedPath = m_config ? m_config->GetLastRemotePath() : "";
+        if (!savedPath.empty()) {
+            m_selectedRemotePath = savedPath;
+            std::wstring msg = tW("transfer.dest_prefix") + Utf8ToUtf16(m_selectedRemotePath);
+            SetWindowTextW(m_hTransferDestText, msg.c_str());
+            UpdateTransferButtonState();
+            return;
         }
-        std::wstring msg = tW("transfer.dest_prefix") + Utf8ToUtf16(m_selectedRemotePath);
-        SetWindowTextW(m_hTransferDestText, msg.c_str());
-        UpdateTransferButtonState();
+        if (!m_selectedRemotePath.empty()) {
+            return;
+        }
     }
+
+    // ユーザー自身の明示的操作（TVC_BYMOUSE / TVC_BYKEYBOARD）または初期設定時
+    m_selectedRemotePath = pData->fullPath;
+    if (m_config) {
+        m_config->SetLastRemotePath(m_selectedRemotePath);
+        m_config->Save(L"");
+    }
+    std::wstring msg = tW("transfer.dest_prefix") + Utf8ToUtf16(m_selectedRemotePath);
+    SetWindowTextW(m_hTransferDestText, msg.c_str());
+    UpdateTransferButtonState();
 }
 
 LRESULT MainWindow::HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -571,6 +640,17 @@ LRESULT MainWindow::HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             delete pStorages;
             UpdateConnectedStatusText();
             UpdateUIConnectionState(true, false);
+
+            // ストレージスキャン完了後、INIに記憶されている転送先を確実に復元・同期
+            if (m_config) {
+                std::string savedRemote = m_config->GetLastRemotePath();
+                if (!savedRemote.empty()) {
+                    m_selectedRemotePath = savedRemote;
+                    std::wstring msg = tW("transfer.dest_prefix") + Utf8ToUtf16(m_selectedRemotePath);
+                    SetWindowTextW(m_hTransferDestText, msg.c_str());
+                    UpdateTransferButtonState();
+                }
+            }
         }
         return 0;
     }
@@ -638,10 +718,35 @@ LRESULT MainWindow::HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         return 0;
     }
 
+    case WM_APP_TRANSFER_FILE_DONE: {
+        auto pPath = reinterpret_cast<std::wstring*>(wParam);
+        if (pPath) {
+            RemoveCompletedFile(*pPath);
+            delete pPath;
+        }
+        return 0;
+    }
+
     case WM_APP_TRANSFER_COMPLETE: {
         auto pResults = reinterpret_cast<std::vector<TransferResult>*>(wParam);
+        bool wasCanceled = m_cancelRequested.load();
         m_isTransferring = false;
+        m_cancelRequested = false;
         UpdateUIConnectionState(m_connState.isConnected, false);
+
+        // ボタンテキストを「転送開始」に復帰
+        SetWindowTextW(m_hBtnStartTransfer, tW("transfer.btn_start").c_str());
+
+        // 転送完了後、INIに記憶されている転送先との同期を保証
+        if (m_config) {
+            std::string savedRemote = m_config->GetLastRemotePath();
+            if (!savedRemote.empty()) {
+                m_selectedRemotePath = savedRemote;
+                std::wstring msg = tW("transfer.dest_prefix") + Utf8ToUtf16(m_selectedRemotePath);
+                SetWindowTextW(m_hTransferDestText, msg.c_str());
+                UpdateTransferButtonState();
+            }
+        }
 
         if (pResults) {
             int successCount = 0;
@@ -651,24 +756,32 @@ LRESULT MainWindow::HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             for (const auto& r : *pResults) {
                 if (r.success) {
                     successCount++;
-                } else {
+                } else if (r.errorMessage != "Canceled") {
                     failDetails += L"\n・" + r.localPath + L": " + Utf8ToUtf16(r.errorMessage);
                 }
             }
 
-            SendMessageW(m_hProgressBar, PBM_SETPOS, 100, 0);
             std::map<std::string, std::wstring> params = {
                 {"success", std::to_wstring(successCount)},
+                {"count", std::to_wstring(successCount)},
                 {"total", std::to_wstring(total)}
             };
-            SetProgressStatus("progress.complete", params);
 
-            if (successCount == total) {
-                std::wstring msg = tW("messages.transfer_success_msg", params);
-                MessageBoxW(m_hwnd, msg.c_str(), tW("messages.transfer_success_title").c_str(), MB_OK | MB_ICONINFORMATION);
+            if (wasCanceled) {
+                SetProgressStatus("progress.canceled", params);
+                std::wstring msg = tW("messages.transfer_canceled_msg", params);
+                ShowCenteredMessageBox(msg, tW("messages.transfer_canceled_title"), MB_OK | MB_ICONINFORMATION);
             } else {
-                std::wstring msg = tW("messages.transfer_fail_msg", params) + failDetails;
-                MessageBoxW(m_hwnd, msg.c_str(), tW("messages.transfer_fail_title").c_str(), MB_OK | MB_ICONWARNING);
+                SendMessageW(m_hProgressBar, PBM_SETPOS, 100, 0);
+                SetProgressStatus("progress.complete", params);
+
+                if (successCount == total) {
+                    std::wstring msg = tW("messages.transfer_success_msg", params);
+                    ShowCenteredMessageBox(msg, tW("messages.transfer_success_title"), MB_OK | MB_ICONINFORMATION);
+                } else {
+                    std::wstring msg = tW("messages.transfer_fail_msg", params) + failDetails;
+                    ShowCenteredMessageBox(msg, tW("messages.transfer_fail_title"), MB_OK | MB_ICONWARNING);
+                }
             }
             delete pResults;
         }

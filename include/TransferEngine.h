@@ -25,7 +25,8 @@ struct TransferTask {
     uint64_t fileSize = 0;
 };
 
-using ProgressCallback = std::function<void(int currentItem, int totalItems, const std::string& statusMsg, int percent)>;
+using ProgressCallback = std::function<void(int currentItem, int totalItems, const std::string& statusMsg, int percent, double speedBytesPerSec, int etaSeconds)>;
+using FileCompleteCallback = std::function<void(const TransferTask& task, const TransferResult& result)>;
 
 class TransferEngine {
 public:
@@ -35,21 +36,29 @@ public:
     std::vector<TransferResult> TransferTasks(const AdbManager& adb,
                                               const std::string& targetDevice,
                                               const std::vector<TransferTask>& tasks,
-                                              ProgressCallback progressCb = nullptr);
+                                              ProgressCallback progressCb = nullptr,
+                                              std::function<bool()> isCanceled = nullptr,
+                                              FileCompleteCallback onFileComplete = nullptr);
 
     // ファイルまたはフォルダの転送実行とベリファイ (互換用)
     TransferResult Transfer(const AdbManager& adb,
                             const std::string& targetDevice,
                             const std::wstring& localPath,
                             const std::string& remoteDir,
-                            ProgressCallback progressCb = nullptr);
+                            ProgressCallback progressCb = nullptr,
+                            std::function<bool()> isCanceled = nullptr);
 
     // 複数アイテムの一括転送 (互換用)
     std::vector<TransferResult> TransferBatch(const AdbManager& adb,
                                               const std::string& targetDevice,
                                               const std::vector<std::wstring>& localPaths,
                                               const std::string& remoteDir,
-                                              ProgressCallback progressCb = nullptr);
+                                              ProgressCallback progressCb = nullptr,
+                                              std::function<bool()> isCanceled = nullptr);
+
+    // 転送速度・残り時間フォーマットユーティリティ
+    static std::string FormatSpeed(double bytesPerSec);
+    static std::string FormatEta(int etaSeconds);
 
     // ローカルファイルサイズ取得 (Windows API)
     static int64_t GetLocalFileSize(const std::wstring& filePath);

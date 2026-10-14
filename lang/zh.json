@@ -36,6 +36,7 @@
     "col_name": "目标文件/文件夹",
     "summary_format": "已选择: {count} 个文件 ({size})",
     "btn_start": "开始传输",
+    "btn_stop": "停止",
     "btn_remove": "从列表中移除",
     "btn_clear": "清空列表"
   },
@@ -45,6 +46,8 @@
     "items_removed": "已删除选中的项目 ({removed} 个已删除, 剩余 {remain} 个)",
     "list_cleared": "传输列表已清空",
     "transferring": "正在传输: {name} ({current}/{total}) - {speed}",
+    "stopping": "正在停止传输...",
+    "canceled": "传输已停止 ({count}/{total} 项成功)",
     "verifying": "正在校验: 正在比对 {name} 文件大小...",
     "complete": "传输完成: {count}/{total} 成功 (大小已严格校验)",
     "error": "错误: 传输失败"
@@ -65,6 +68,8 @@
     "transfer_success_title": "传输完成",
     "transfer_success_msg": "所有文件（{success}/{total} 项）已成功传输并完成大小校验。",
     "transfer_fail_title": "传输结果（部分验证失败）",
-    "transfer_fail_msg": "{total} 项中，部分文件的传输或大小校验失败（{success}/{total} 成功）："
+    "transfer_fail_msg": "{total} 项中，部分文件的传输或大小校验失败（{success}/{total} 成功）：",
+    "transfer_canceled_title": "传输已停止",
+    "transfer_canceled_msg": "用户已停止传输 ({success}/{total} 项成功)。"
   }
 }

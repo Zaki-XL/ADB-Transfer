@@ -37,23 +37,6 @@ static void ScanDirectoryRecursive(const std::wstring& rootDir,
     FindClose(hFind);
 }
 
-static std::wstring FormatFileSize(uint64_t bytes) {
-    const wchar_t* units[] = { L"B", L"KB", L"MB", L"GB", L"TB" };
-    double size = static_cast<double>(bytes);
-    int unitIdx = 0;
-    while (size >= 1024.0 && unitIdx < 4) {
-        size /= 1024.0;
-        unitIdx++;
-    }
-    wchar_t buf[64];
-    if (unitIdx == 0) {
-        swprintf_s(buf, L"%llu B", bytes);
-    } else {
-        swprintf_s(buf, L"%.2f %s", size, units[unitIdx]);
-    }
-    return buf;
-}
-
 void MainWindow::AddTransferItem(const std::wstring& path) {
     // 重複チェック
     for (const auto& existing : m_transferItems) {
@@ -102,6 +85,21 @@ void MainWindow::AddTransferItem(const std::wstring& path) {
 
 void MainWindow::RefreshTransferListView() {
     m_isUpdatingListChecks = true;
+
+    // 現在のスクロール位置（一番上の表示行インデックス）を保持
+    int topIndex = ListView_GetTopIndex(m_hTransferList);
+    // 現在フォーカスされている行の rootIndex / subFileIndex を特定
+    int focusedRow = ListView_GetNextItem(m_hTransferList, -1, LVNI_FOCUSED);
+    size_t focusedRoot = (size_t)-1;
+    int focusedSub = -1;
+    if (focusedRow >= 0 && focusedRow < static_cast<int>(m_listRows.size())) {
+        focusedRoot = m_listRows[focusedRow].rootIndex;
+        focusedSub = m_listRows[focusedRow].subFileIndex;
+    }
+
+    // 再描画のチラつき防止
+    SendMessageW(m_hTransferList, WM_SETREDRAW, FALSE, 0);
+
     ListView_DeleteAllItems(m_hTransferList);
     m_listRows.clear();
 
@@ -153,6 +151,41 @@ void MainWindow::RefreshTransferListView() {
         }
     }
 
+    // フォーカスと選択状態の復元
+    int newFocusRow = -1;
+    if (focusedRoot != (size_t)-1) {
+        for (size_t r = 0; r < m_listRows.size(); ++r) {
+            if (m_listRows[r].rootIndex == focusedRoot &&
+                (m_listRows[r].subFileIndex == focusedSub || (focusedSub != -1 && m_listRows[r].subFileIndex == -1))) {
+                newFocusRow = static_cast<int>(r);
+                break;
+            }
+        }
+    }
+
+    if (newFocusRow >= 0) {
+        ListView_SetItemState(m_hTransferList, newFocusRow, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+    }
+
+    // スクロール位置の復元
+    if (topIndex > 0) {
+        // 現在の最上部アイテムとの差分ピクセルだけスクロール
+        RECT rcTopItem{};
+        if (ListView_GetItemRect(m_hTransferList, 0, &rcTopItem, LVIR_BOUNDS)) {
+            int itemHeight = rcTopItem.bottom - rcTopItem.top;
+            if (itemHeight > 0) {
+                int totalRows = static_cast<int>(m_listRows.size());
+                int targetTop = (topIndex < totalRows) ? topIndex : (totalRows - 1);
+                if (targetTop > 0) {
+                    ListView_Scroll(m_hTransferList, 0, targetTop * itemHeight);
+                }
+            }
+        }
+    }
+
+    SendMessageW(m_hTransferList, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(m_hTransferList, nullptr, TRUE);
+
     m_isUpdatingListChecks = false;
     UpdateTransferSummary();
 }
@@ -167,6 +200,15 @@ void MainWindow::OnTransferListClick(int itemIndex) {
             // フォルダの展開 / 折りたたみをトグル
             item.isExpanded = !item.isExpanded;
             RefreshTransferListView();
+
+            // 開閉したフォルダ項目を可視領域内に確実に表示
+            for (size_t r = 0; r < m_listRows.size(); ++r) {
+                if (m_listRows[r].rootIndex == row.rootIndex && m_listRows[r].subFileIndex == -1) {
+                    ListView_EnsureVisible(m_hTransferList, static_cast<int>(r), FALSE);
+                    ListView_SetItemState(m_hTransferList, static_cast<int>(r), LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+                    break;
+                }
+            }
         }
     }
 }
@@ -328,7 +370,7 @@ void MainWindow::OnPresetRightClick(size_t index) {
     if (cmd == 1) {
         std::map<std::string, std::wstring> params = { {"name", Utf8ToUtf16(presets[index].name)} };
         std::wstring confirmMsg = tW("preset.delete_confirm", params);
-        if (MessageBoxW(m_hwnd, confirmMsg.c_str(), tW("preset.delete_title").c_str(), MB_YESNO | MB_ICONQUESTION) == IDYES) {
+        if (ShowCenteredMessageBox(confirmMsg, tW("preset.delete_title"), MB_YESNO | MB_ICONQUESTION) == IDYES) {
             m_config->RemovePreset(index);
             m_config->Save(L"");
             RefreshPresetButtons();
@@ -399,17 +441,58 @@ void MainWindow::OnClearTransferList() {
     SetProgressStatus("progress.list_cleared");
 }
 
+void MainWindow::RemoveCompletedFile(const std::wstring& localPath) {
+    for (int i = static_cast<int>(m_transferItems.size()) - 1; i >= 0; --i) {
+        auto& item = m_transferItems[i];
+        if (!item.isDirectory) {
+            if (_wcsicmp(item.localPath.c_str(), localPath.c_str()) == 0) {
+                m_transferItems.erase(m_transferItems.begin() + i);
+                break;
+            }
+        } else {
+            bool found = false;
+            for (int j = static_cast<int>(item.subFiles.size()) - 1; j >= 0; --j) {
+                if (_wcsicmp(item.subFiles[j].localPath.c_str(), localPath.c_str()) == 0) {
+                    item.subFiles.erase(item.subFiles.begin() + j);
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                if (item.subFiles.empty()) {
+                    m_transferItems.erase(m_transferItems.begin() + i);
+                } else {
+                    item.fileCount = static_cast<int>(item.subFiles.size());
+                    uint64_t newTotal = 0;
+                    for (const auto& sf : item.subFiles) newTotal += sf.fileSize;
+                    item.totalBytes = newTotal;
+                }
+                break;
+            }
+        }
+    }
+
+    RefreshTransferListView();
+    SaveTransferListToConfig();
+    UpdateTransferSummary();
+}
+
 void MainWindow::OnStartTransfer() {
     if (m_isTransferring) {
-        MessageBoxW(m_hwnd, tW("messages.warn_no_files_msg").c_str(), tW("messages.warn_no_files_title").c_str(), MB_OK | MB_ICONWARNING);
+        // 転送中なら中断処理
+        if (!m_cancelRequested.load()) {
+            m_cancelRequested = true;
+            EnableWindow(m_hBtnStartTransfer, FALSE); // 連続クリック抑止
+            SetProgressStatus("progress.stopping");
+        }
         return;
     }
     if (!m_connState.isConnected) {
-        MessageBoxW(m_hwnd, tW("header.status_disconnected").c_str(), tW("messages.warn_no_dest_title").c_str(), MB_OK | MB_ICONERROR);
+        ShowCenteredMessageBox(tW("header.status_disconnected"), tW("messages.warn_no_dest_title"), MB_OK | MB_ICONERROR);
         return;
     }
     if (m_selectedRemotePath.empty()) {
-        MessageBoxW(m_hwnd, tW("messages.warn_no_dest_msg").c_str(), tW("messages.warn_no_dest_title").c_str(), MB_OK | MB_ICONWARNING);
+        ShowCenteredMessageBox(tW("messages.warn_no_dest_msg"), tW("messages.warn_no_dest_title"), MB_OK | MB_ICONWARNING);
         return;
     }
 
@@ -463,7 +546,7 @@ void MainWindow::OnStartTransfer() {
     }
 
     if (tasks.empty()) {
-        MessageBoxW(m_hwnd, tW("messages.warn_no_files_msg").c_str(), tW("messages.warn_no_files_title").c_str(), MB_OK | MB_ICONWARNING);
+        ShowCenteredMessageBox(tW("messages.warn_no_files_msg"), tW("messages.warn_no_files_title"), MB_OK | MB_ICONWARNING);
         return;
     }
 
@@ -474,19 +557,23 @@ void MainWindow::OnStartTransfer() {
             {"available", FormatFileSize(static_cast<uint64_t>(availableBytes))}
         };
         std::wstring msg = tW("messages.warn_low_space_msg", params);
-        MessageBoxW(m_hwnd, msg.c_str(), tW("messages.warn_low_space_title").c_str(), MB_OK | MB_ICONWARNING);
+        ShowCenteredMessageBox(msg, tW("messages.warn_low_space_title"), MB_OK | MB_ICONWARNING);
         return;
     }
 
     m_isTransferring = true;
-    EnableWindow(m_hBtnStartTransfer, FALSE);
+    m_cancelRequested = false;
+
+    // ボタンテキストを「停止」に変更し、クリック可能のままにする
+    SetWindowTextW(m_hBtnStartTransfer, tW("transfer.btn_stop").c_str());
+    EnableWindow(m_hBtnStartTransfer, TRUE);
     EnableWindow(m_hBtnRemoveChecked, FALSE);
     EnableWindow(m_hBtnClearTransfer, FALSE);
 
     std::thread([this, tasks, targetDevice]() {
         auto results = m_engine->TransferTasks(
             *m_adb, targetDevice, tasks,
-            [this](int cur, int total, const std::string& msg, int pct) {
+            [this](int cur, int total, const std::string& msg, int pct, double spd, int /*eta*/) {
                 struct ProgData {
                     int percent;
                     std::string message;
@@ -494,8 +581,23 @@ void MainWindow::OnStartTransfer() {
                 int overallPct = (total > 0) ? static_cast<int>(((cur - 1) * 100LL + pct) / total) : pct;
                 if (overallPct > 100) overallPct = 100;
                 if (overallPct < 0) overallPct = 0;
-                auto pProg = new ProgData{overallPct, "[" + std::to_string(cur) + "/" + std::to_string(total) + "] " + msg};
+
+                std::string speedStr = TransferEngine::FormatSpeed(spd);
+
+                std::string dispMsg = "[" + std::to_string(cur) + "/" + std::to_string(total) + "] " +
+                                      msg + " (" + speedStr + " - 全体 " + std::to_string(overallPct) + "%)";
+
+                auto pProg = new ProgData{overallPct, dispMsg};
                 PostMessageW(m_hwnd, WM_APP_TRANSFER_PROGRESS, (WPARAM)pProg, 0);
+            },
+            [this]() {
+                return m_cancelRequested.load();
+            },
+            [this](const TransferTask& task, const TransferResult& res) {
+                if (res.success) {
+                    auto pPath = new std::wstring(task.localFilePath);
+                    PostMessageW(m_hwnd, WM_APP_TRANSFER_FILE_DONE, (WPARAM)pPath, 0);
+                }
             });
 
         auto pRes = new std::vector<TransferResult>(std::move(results));

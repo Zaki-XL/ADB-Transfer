@@ -16,8 +16,14 @@ Solves fundamental issues commonly encountered with traditional MTP connections,
 - **Full Folder Structure Replication & Expandable File Selection (v1.1.0)**:
   - Folders in the transfer list can be expanded (`> `) to select individual files for transfer.
   - Accurately replicates local folder structures on the device (`mkdir -p`).
-- **Persistent Transfer List (v1.1.0)**:
-  - Automatically saves and restores transfer queue items in `config.ini`.
+- **Real-Time Transfer Speed & ETA Calculation (v1.2.0)**:
+  - Dynamically calculates transfer speed (`MB/s` / `KB/s`) and estimated time of arrival (ETA) using high-precision timers and progress tracking.
+- **Mid-Transfer Stop/Cancel Support (v1.2.0)**:
+  - The start button transitions into a "Stop" button during transfers, allowing users to safely interrupt execution at any time.
+- **Instant Per-File Queue Removal & Auto-Persistence (v1.2.0)**:
+  - Successfully transferred and size-verified files are immediately removed from the queue and `config.ini`. If stopped or interrupted, only untransferred items remain for immediate resumption.
+- **Destination INI Persistence Priority & Implicit Tree Selection Guard (v1.2.1)**:
+  - Prevents the destination path from accidentally reverting to `/sdcard` caused by implicit tree focus events after dismiss of transfer dialogs or background scan completions. Always preserves the user's previously remembered target folder from `config.ini`.
 - **Byte-Exact Size Verification**: After each `adb push`, strictly verifies local file sizes against Android remote file sizes (`stat -c %s`) down to the exact byte, with robust shell escaping for bracketed paths `[...]`.
 - **Multilingual Support (i18n: 日本語 / English / 简体中文)**:
   - Dynamically scans the `lang/` directory on startup.
@@ -33,7 +39,7 @@ Solves fundamental issues commonly encountered with traditional MTP connections,
 
 ## Versioning Policy
 This project adheres to Semantic Versioning (`MAJOR.MINOR.PATCH`).
-- **Title Display**: `ADB Transfer v1.1.0`
+- **Title Display**: `ADB Transfer v1.2.1`
 - **Second Number (MINOR / Feature Additions)**: New feature additions, UI component additions, new storage format support, etc.
 - **Third Number (PATCH / Bug Fixes & Refinements)**: Bug fixes, flicker reduction/rendering optimizations, text corrections, etc.
 - **First Number (MAJOR / Major Changes)**: Breaking architectural changes or complete protocol overhaul.
@@ -121,7 +127,8 @@ ADB Transfer/
 │   └── README.txt
 ├── README.md                      # Japanese documentation
 ├── README_EN.md                   # English documentation (This file)
-└── README_ZH.md                   # Simplified Chinese documentation
+├── README_ZH.md                   # Simplified Chinese documentation
+└── TRANSFER_SPEED_ANALYSIS.md     # Wireless ADB transfer speed technical analysis document
 ```
 
 *(※ Internal development documents, tasks, reviewer reports in `doc/`, and temporary scripts in `scratch/` are excluded from Git tracking via `.gitignore` to keep the public repository clean and secure)*

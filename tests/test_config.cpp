@@ -63,6 +63,13 @@ void TestConfigManager() {
     assert(loadedConfig2.GetTransferPaths()[1] == L"E:\\Test\\file2.zip");
     assert(loadedConfig2.GetLastRemotePath() == "/storage/8144-1008/PV_Data");
 
+    // 転送先の更新と保持テスト
+    config.SetLastRemotePath("/sdcard/Download");
+    config.Save(testIni);
+    AdbTransfer::ConfigManager loadedConfig3;
+    loadedConfig3.Load(testIni);
+    assert(loadedConfig3.GetLastRemotePath() == "/sdcard/Download");
+
     DeleteFileW(testIni.c_str());
     std::cout << "[PASS] TestConfigManager passed!" << std::endl;
 }

@@ -36,6 +36,7 @@
     "col_name": "対象ファイル/フォルダ",
     "summary_format": "選択中: {count} ファイル ({size})",
     "btn_start": "転送開始",
+    "btn_stop": "停止",
     "btn_remove": "リストから削除",
     "btn_clear": "リストクリア"
   },
@@ -45,6 +46,8 @@
     "items_removed": "チェックしたアイテムを削除しました ({removed} 件削除, 残り {remain} 項目)",
     "list_cleared": "リストをクリアしました",
     "transferring": "転送中: {name} ({current}/{total}) - {speed}",
+    "stopping": "転送を中断しています...",
+    "canceled": "転送が中断されました ({count}/{total} 成功)",
     "verifying": "検証中: {name} のサイズを照合中...",
     "complete": "転送完了: {count}/{total} 成功 (サイズ整合性ベリファイ済)",
     "error": "エラー: 転送に失敗しました"
@@ -65,6 +68,9 @@
     "transfer_success_title": "転送完了",
     "transfer_success_msg": "すべてのファイル（{success}/{total} 項目）の転送と整合性ベリファイが完了しました。",
     "transfer_fail_title": "転送結果（検証失敗あり）",
-    "transfer_fail_msg": "{total} 項目中、一部のファイルの転送またはサイズ検証に失敗しました ({success}/{total} 成功):"
+    "transfer_fail_msg": "{total} 項目中、一部のファイルの転送またはサイズ検証に失敗しました ({success}/{total} 成功):",
+    "transfer_canceled_title": "転送中断",
+    "transfer_canceled_msg": "転送がユーザーによって中断されました ({success}/{total} 項目成功)。"
   }
 }
+

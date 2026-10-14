@@ -170,6 +170,7 @@ int AdbManager::Execute(const std::vector<std::string>& args,
 
 int AdbManager::ExecuteWithProgress(const std::vector<std::string>& args,
                                     std::function<void(const std::string& line)> onOutput,
+                                    std::function<bool()> isCanceled,
                                     int timeoutMs) const {
     SECURITY_ATTRIBUTES sa{};
     sa.nLength = sizeof(sa);
@@ -223,7 +224,29 @@ int AdbManager::ExecuteWithProgress(const std::vector<std::string>& args,
         }
     });
 
-    WaitForSingleObject(pi.hProcess, timeoutMs);
+    int elapsed = 0;
+    const DWORD pollInterval = 50;
+    bool wasCanceled = false;
+
+    while (true) {
+        if (isCanceled && isCanceled()) {
+            wasCanceled = true;
+            TerminateProcess(pi.hProcess, 1);
+            break;
+        }
+
+        DWORD waitRes = WaitForSingleObject(pi.hProcess, pollInterval);
+        if (waitRes == WAIT_OBJECT_0) {
+            break;
+        }
+
+        elapsed += static_cast<int>(pollInterval);
+        if (elapsed >= timeoutMs) {
+            TerminateProcess(pi.hProcess, 1);
+            break;
+        }
+    }
+
     if (thReader.joinable()) thReader.join();
 
     DWORD exitCode = 0;
@@ -233,6 +256,9 @@ int AdbManager::ExecuteWithProgress(const std::vector<std::string>& args,
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
+    if (wasCanceled) {
+        return -2;
+    }
     return static_cast<int>(exitCode);
 }
 
@@ -320,7 +346,8 @@ bool AdbManager::DisconnectWifi(const std::string& ip, int port) const {
 int AdbManager::Push(const std::string& targetDevice,
                      const std::wstring& localPath,
                      const std::string& remotePath,
-                     std::function<void(const std::string&)> progressCb) const {
+                     std::function<void(const std::string&)> progressCb,
+                     std::function<bool()> isCanceled) const {
     std::vector<std::string> args;
     if (!targetDevice.empty()) {
         args.push_back("-s");
@@ -332,8 +359,8 @@ int AdbManager::Push(const std::string& targetDevice,
     args.push_back(I18nManager::WideToUtf8(localPath));
     args.push_back(remotePath);
 
-    if (progressCb) {
-        return ExecuteWithProgress(args, progressCb);
+    if (progressCb || isCanceled) {
+        return ExecuteWithProgress(args, progressCb, isCanceled);
     } else {
         std::string o, e;
         return Execute(args, o, e, 600000);

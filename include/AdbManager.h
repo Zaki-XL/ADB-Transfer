@@ -32,9 +32,10 @@ public:
                 std::string& outErr,
                 int timeoutMs = 30000) const;
 
-    // 非同期プロセス起動（行ごとのコールバック）
+    // 非同期プロセス起動（行ごとのコールバック、中断判定）
     int ExecuteWithProgress(const std::vector<std::string>& args,
                             std::function<void(const std::string& line)> onOutput,
+                            std::function<bool()> isCanceled = nullptr,
                             int timeoutMs = 600000) const;
 
     // 主要ADB操作
@@ -49,7 +50,8 @@ public:
     int Push(const std::string& targetDevice,
              const std::wstring& localPath,
              const std::string& remotePath,
-             std::function<void(const std::string&)> progressCb = nullptr) const;
+             std::function<void(const std::string&)> progressCb = nullptr,
+             std::function<bool()> isCanceled = nullptr) const;
 
     std::string ShellExec(const std::string& targetDevice, const std::string& shellCmd) const;
     int64_t GetRemoteFileSize(const std::string& targetDevice, const std::string& remotePath) const;

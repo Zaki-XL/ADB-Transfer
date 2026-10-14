@@ -58,4 +58,22 @@ inline std::wstring Utf8ToUtf16(const std::string& utf8Str) {
     return I18nManager::Utf8ToWide(utf8Str);
 }
 
+// ファイルサイズ文字列フォーマット（共通ヘルパー）
+inline std::wstring FormatFileSize(uint64_t bytes) {
+    const wchar_t* units[] = { L"B", L"KB", L"MB", L"GB", L"TB" };
+    double size = static_cast<double>(bytes);
+    int unitIdx = 0;
+    while (size >= 1024.0 && unitIdx < 4) {
+        size /= 1024.0;
+        unitIdx++;
+    }
+    wchar_t buf[64];
+    if (unitIdx == 0) {
+        swprintf_s(buf, L"%llu B", bytes);
+    } else {
+        swprintf_s(buf, L"%.2f %s", size, units[unitIdx]);
+    }
+    return buf;
+}
+
 } // namespace AdbTransfer

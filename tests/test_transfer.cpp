@@ -26,6 +26,14 @@ void TestTransferEngine() {
     auto files = AdbTransfer::TransferEngine::CollectLocalFiles(L"scratch");
     assert(!files.empty());
 
+    // 4. FormatSpeed & FormatEta テスト
+    assert(AdbTransfer::TransferEngine::FormatSpeed(0.0) == "0.0 KB/s");
+    assert(AdbTransfer::TransferEngine::FormatSpeed(1024.0) == "1.0 KB/s");
+    assert(AdbTransfer::TransferEngine::FormatSpeed(15.5 * 1024.0 * 1024.0) == "15.5 MB/s");
+    assert(AdbTransfer::TransferEngine::FormatEta(-1) == "--:--");
+    assert(AdbTransfer::TransferEngine::FormatEta(65) == "01:05");
+    assert(AdbTransfer::TransferEngine::FormatEta(3665) == "01:01:05");
+
     DeleteFileW(testFile.c_str());
     std::cout << "[PASS] TestTransferEngine passed!" << std::endl;
 }

@@ -583,9 +583,13 @@ void MainWindow::OnStartTransfer() {
                 if (overallPct < 0) overallPct = 0;
 
                 std::string speedStr = TransferEngine::FormatSpeed(spd);
+                std::string extraStatus = "";
+                if (pct >= 95 && pct < 100) {
+                    extraStatus = " [" + t("progress.waiting_flush") + "]";
+                }
 
                 std::string dispMsg = "[" + std::to_string(cur) + "/" + std::to_string(total) + "] " +
-                                      msg + " (" + speedStr + " - 全体 " + std::to_string(overallPct) + "%)";
+                                      msg + extraStatus + " (" + speedStr + " - 全体 " + std::to_string(overallPct) + "%)";
 
                 auto pProg = new ProgData{overallPct, dispMsg};
                 PostMessageW(m_hwnd, WM_APP_TRANSFER_PROGRESS, (WPARAM)pProg, 0);

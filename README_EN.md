@@ -24,6 +24,10 @@ Solves fundamental issues commonly encountered with traditional MTP connections,
   - Successfully transferred and size-verified files are immediately removed from the queue and `config.ini`. If stopped or interrupted, only untransferred items remain for immediate resumption.
 - **Destination INI Persistence Priority & Implicit Tree Selection Guard (v1.2.1)**:
   - Prevents the destination path from accidentally reverting to `/sdcard` caused by implicit tree focus events after dismiss of transfer dialogs or background scan completions. Always preserves the user's previously remembered target folder from `config.ini`.
+- **Async Verification Pipeline & Directory Cache (v1.2.2)**:
+  - Asynchronously verifies the previous file in the background while immediately initiating transfer for the next file, cutting idle time between files. Completely eliminates redundant `mkdir` invocations using an internal cache.
+- **Disk Flush Waiting Status Display (v1.2.2)**:
+  - Explicitly indicates "Waiting for disk write to complete..." on the status line when reaching 95% (waiting for physical OS cache flush), eliminating freezing concerns.
 - **Byte-Exact Size Verification**: After each `adb push`, strictly verifies local file sizes against Android remote file sizes (`stat -c %s`) down to the exact byte, with robust shell escaping for bracketed paths `[...]`.
 - **Multilingual Support (i18n: 日本語 / English / 简体中文)**:
   - Dynamically scans the `lang/` directory on startup.
@@ -39,7 +43,7 @@ Solves fundamental issues commonly encountered with traditional MTP connections,
 
 ## Versioning Policy
 This project adheres to Semantic Versioning (`MAJOR.MINOR.PATCH`).
-- **Title Display**: `ADB Transfer v1.2.1`
+- **Title Display**: `ADB Transfer v1.2.2`
 - **Second Number (MINOR / Feature Additions)**: New feature additions, UI component additions, new storage format support, etc.
 - **Third Number (PATCH / Bug Fixes & Refinements)**: Bug fixes, flicker reduction/rendering optimizations, text corrections, etc.
 - **First Number (MAJOR / Major Changes)**: Breaking architectural changes or complete protocol overhaul.

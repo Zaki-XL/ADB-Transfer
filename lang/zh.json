@@ -49,6 +49,7 @@
     "stopping": "正在停止传输...",
     "canceled": "传输已停止 ({count}/{total} 项成功)",
     "verifying": "正在校验: 正在比对 {name} 文件大小...",
+    "waiting_flush": "正在等待写入磁盘完成...",
     "complete": "传输完成: {count}/{total} 成功 (大小已严格校验)",
     "error": "错误: 传输失败"
   },

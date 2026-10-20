@@ -18,7 +18,7 @@ namespace AdbTransfer {
 
 // アプリケーションバージョン (Semantic Versioning: MAJOR.MINOR.PATCH)
 // 機能追加時は MINOR (第2), 機能修正時は PATCH (第3) をカウントアップ
-constexpr const wchar_t* APP_VERSION = L"1.2.1";
+constexpr const wchar_t* APP_VERSION = L"1.2.2";
 
 // カスタムメッセージ
 constexpr UINT WM_APP_CONNECT_COMPLETE    = WM_APP + 1;

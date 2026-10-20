@@ -49,6 +49,7 @@
     "stopping": "Stopping transfer...",
     "canceled": "Transfer stopped ({count}/{total} succeeded)",
     "verifying": "Verifying: Checking size for {name}...",
+    "waiting_flush": "Waiting for disk write to complete...",
     "complete": "Transfer Complete: {count}/{total} successful (size verified)",
     "error": "Error: Transfer failed"
   },

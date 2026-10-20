@@ -49,6 +49,7 @@
     "stopping": "転送を中断しています...",
     "canceled": "転送が中断されました ({count}/{total} 成功)",
     "verifying": "検証中: {name} のサイズを照合中...",
+    "waiting_flush": "ディスクへの書き込み完了を待っています...",
     "complete": "転送完了: {count}/{total} 成功 (サイズ整合性ベリファイ済)",
     "error": "エラー: 転送に失敗しました"
   },

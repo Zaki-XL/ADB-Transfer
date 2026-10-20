@@ -6,6 +6,9 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
+#include <future>
+#include <unordered_set>
+#include <memory>
 
 namespace AdbTransfer {
 
@@ -218,6 +221,7 @@ std::vector<TransferResult> TransferEngine::TransferTasks(const AdbManager& adb,
                                                           ProgressCallback progressCb,
                                                           std::function<bool()> isCanceled,
                                                           FileCompleteCallback onFileComplete) {
+    std::unordered_set<std::string> createdDirs;
     std::vector<TransferResult> results;
     int total = static_cast<int>(tasks.size());
 
@@ -229,6 +233,43 @@ std::vector<TransferResult> TransferEngine::TransferTasks(const AdbManager& adb,
     uint64_t completedBytes = 0;
     double currentSpeed = 0.0;
 
+    struct PendingVerify {
+        TransferTask task;
+        int taskIndex;
+        std::future<TransferResult> fut;
+    };
+    std::unique_ptr<PendingVerify> pendingVerify;
+
+    auto finishPendingVerify = [&](bool waitIfRunning) {
+        if (!pendingVerify) return;
+        if (!waitIfRunning && pendingVerify->fut.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
+            return;
+        }
+        TransferResult vRes = pendingVerify->fut.get();
+        if (vRes.success) {
+            completedBytes += pendingVerify->task.fileSize;
+        }
+
+        int finishEta = -1;
+        if (currentSpeed > 1024.0 && totalAllBytes > completedBytes) {
+            finishEta = static_cast<int>((totalAllBytes - completedBytes) / currentSpeed);
+        }
+
+        if (progressCb) {
+            progressCb(pendingVerify->taskIndex + 1, total,
+                       vRes.success ? ("完了: " + pendingVerify->task.relativePathForDisplay)
+                                    : ("検証失敗: " + pendingVerify->task.relativePathForDisplay),
+                       100, currentSpeed, finishEta);
+        }
+
+        if (onFileComplete) {
+            onFileComplete(pendingVerify->task, vRes);
+        }
+
+        results.push_back(vRes);
+        pendingVerify.reset();
+    };
+
     for (int i = 0; i < total; ++i) {
         if (isCanceled && isCanceled()) {
             break;
@@ -238,8 +279,11 @@ std::vector<TransferResult> TransferEngine::TransferTasks(const AdbManager& adb,
         TransferResult res;
         res.localPath = t.localFilePath;
 
-        // リモート側ターゲットディレクトリを事前に作成
-        adb.MakeRemoteDirectory(targetDevice, t.remoteTargetDir);
+        // リモート側ターゲットディレクトリをキャッシュ付きで作成
+        if (createdDirs.find(t.remoteTargetDir) == createdDirs.end()) {
+            adb.MakeRemoteDirectory(targetDevice, t.remoteTargetDir);
+            createdDirs.insert(t.remoteTargetDir);
+        }
 
         std::string pushDest = t.remoteTargetDir;
         if (!pushDest.empty() && pushDest.back() != '/') {
@@ -270,6 +314,9 @@ std::vector<TransferResult> TransferEngine::TransferTasks(const AdbManager& adb,
             while (isPushing.load()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 if (!isPushing.load()) break;
+
+                // 前ファイルのベリファイが完了していれば非同期回収
+                finishPendingVerify(false);
 
                 auto now = std::chrono::steady_clock::now();
                 std::chrono::duration<double> fileSec = now - fileStartTime;
@@ -334,6 +381,9 @@ std::vector<TransferResult> TransferEngine::TransferTasks(const AdbManager& adb,
             timerThread.join();
         }
 
+        // 前ファイルのベリファイがまだ未回収ならここで確実に待機・回収
+        finishPendingVerify(true);
+
         // 実測転送時間から確定速度をバックアップ計算
         auto fileEndTime = std::chrono::steady_clock::now();
         std::chrono::duration<double> filePushSec = fileEndTime - fileStartTime;
@@ -369,38 +419,29 @@ std::vector<TransferResult> TransferEngine::TransferTasks(const AdbManager& adb,
             progressCb(i + 1, total, "ベリファイ中: " + t.relativePathForDisplay, 95, currentSpeed, verifyEta);
         }
 
-        res.sizeMatched = VerifyFile(adb, targetDevice, t.localFilePath, remoteTargetFile, res.localBytes, res.remoteBytes);
-        res.success = res.sizeMatched;
-        if (!res.sizeMatched) {
-            res.errorMessage = "サイズ不一致: Local=" + std::to_string(res.localBytes) +
-                               " Remote=" + std::to_string(res.remoteBytes);
-        }
-
-        if (res.success) {
-            completedBytes += t.fileSize;
-        }
-
-        // 完了時のETA計算
-        int finishEta = -1;
-        if (currentSpeed > 1024.0 && totalAllBytes > completedBytes) {
-            finishEta = static_cast<int>((totalAllBytes - completedBytes) / currentSpeed);
-        }
-
-        if (progressCb) {
-            progressCb(i + 1, total, res.success ? ("完了: " + t.relativePathForDisplay) : ("検証失敗: " + t.relativePathForDisplay), 100, currentSpeed, finishEta);
-        }
-
-        // 個別ファイル完了通知コールバック（リストからの即時削除・永続化）
-        if (onFileComplete) {
-            onFileComplete(t, res);
-        }
-
-        results.push_back(res);
+        // ベリファイを非同期に起動（次ファイルのPushと並行処理）
+        pendingVerify = std::make_unique<PendingVerify>();
+        pendingVerify->task = t;
+        pendingVerify->taskIndex = i;
+        pendingVerify->fut = std::async(std::launch::async, [&adb, targetDevice, t, remoteTargetFile, res]() mutable {
+            res.sizeMatched = VerifyFile(adb, targetDevice, t.localFilePath, remoteTargetFile, res.localBytes, res.remoteBytes);
+            res.success = res.sizeMatched;
+            if (!res.sizeMatched) {
+                res.errorMessage = "サイズ不一致: Local=" + std::to_string(res.localBytes) +
+                                   " Remote=" + std::to_string(res.remoteBytes);
+            }
+            return res;
+        });
 
         if (isCanceled && isCanceled()) {
             break;
         }
     }
+
+    // 全ループ終了後、最後の保留中ベリファイを待機・回収
+    finishPendingVerify(true);
+
+    return results;
 
     return results;
 }

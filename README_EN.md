@@ -86,6 +86,15 @@ flowchart LR
 4. Drag and drop the files or folders you wish to transfer into the transfer area on the right.
 5. Click "**Start Transfer**" to begin background streaming and automatic size verification.
 
+### Troubleshooting: Registered Device Remains "Disconnected"
+- **Symptom**: The device is connected to the same Wi-Fi network, but the app continues to display "Disconnected" (Red lamp).
+- **Cause**: Due to standard Android OS security specifications, **rebooting the device, deep sleep, or Wi-Fi disconnection automatically closes the wireless ADB listening port (`adb tcpip 5555`) and resets the device to USB mode** (connection to port 5555 is refused by the device).
+- **Solution**:
+  1. Reconnect your device to the PC using a USB cable.
+  2. If prompted on the device screen, tap "Allow USB debugging".
+  3. Click the "**Register Device (USB)**" button at the top of the app (this re-opens port 5555).
+  4. Once the success dialog appears, disconnect the USB cable. Wireless connection via Wi-Fi will resume automatically.
+
 ---
 
 ## 3. Directory Structure
